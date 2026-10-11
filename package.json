@@ -1,0 +1,61 @@
+{
+  "name": "@quantovainc/qsign",
+  "version": "0.1.0",
+  "description": "Post quantum document signatures with ML-DSA-65 under FIPS 204, with Quantova time proofs that any party can verify.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "qsign": "bin/qsign.js"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "lib/",
+    "bin/",
+    "wasm/qsign_native.js",
+    "wasm/qsign_native_bg.wasm",
+    "wasm/qsign_native.d.ts",
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
+    "NOTICE",
+    "AUTHORS"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@quantovainc/qstamp": "0.1.4"
+  },
+  "keywords": [
+    "post-quantum",
+    "quantum-safe",
+    "digital-signature",
+    "document-signing",
+    "ml-dsa",
+    "fips-204",
+    "sha3",
+    "notary",
+    "timestamp",
+    "quantova"
+  ],
+  "license": "Apache-2.0 OR MIT",
+  "author": "Quantova Inc",
+  "homepage": "https://github.com/Quantova/QSign",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Quantova/QSign.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Quantova/QSign/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
