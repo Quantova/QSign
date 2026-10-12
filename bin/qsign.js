@@ -350,9 +350,11 @@ async function main() {
 }
 
 main().then(
-  (code) => process.exit(code),
+  (code) => {
+    process.exitCode = code;
+  },
   (e) => {
     console.error(safe((e && e.message) || e).slice(0, 400));
-    process.exit(e && (e.usage || e.code === 'QSIGN_INVALID_INPUT') ? 64 : 1);
+    process.exitCode = e && (e.usage || e.code === 'QSIGN_INVALID_INPUT') ? 64 : 1;
   },
 );
