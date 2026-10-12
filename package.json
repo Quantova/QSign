@@ -1,6 +1,6 @@
 {
   "name": "@quantovainc/qsign",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Post quantum document signatures with ML-DSA-65 under FIPS 204, with Quantova time proofs that any party can verify.",
   "main": "index.js",
   "types": "index.d.ts",

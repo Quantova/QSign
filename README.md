@@ -1,16 +1,16 @@
 # QSign
 
-QSign is a post quantum document signature SDK for the Quantova chain. It signs any document with the Module Lattice Digital Signature Algorithm, parameter set 65, as standardised in FIPS 204, and it can bind each signature to a Qstamp time proof so that any third party can establish that the signature existed no later than a stated moment.
+QSign is a post quantum document signature SDK for the Quantova network. It signs any document with the Module Lattice Digital Signature Algorithm, parameter set 65, as standardised in FIPS 204, and it can bind each signature to a Qstamp time proof so that any third party can establish that the signature existed no later than a stated moment.
 
 A QSign signature does not depend on elliptic curve or RSA cryptography at any point. The signature, the key fingerprint, the time proof and the chain that carries it are all built on primitives that no known quantum algorithm breaks.
 
 ## What QSign is
 
-QSign is a software library and command line tool that gives any organisation post quantum digital signatures for its documents. A signature made with QSign proves three things to anyone who checks it. It proves who signed, because only the holder of the signing key can produce it. It proves what was signed, because any change to a single byte of the document breaks the signature. And when the signature is anchored, it proves when it was signed, because the Quantova chain records independent evidence of the moment the signature existed.
+QSign is a software library and command line tool that gives any organisation post quantum digital signatures for its documents. A signature made with QSign proves three things to anyone who checks it. It proves who signed, because only the holder of the signing key can produce it. It proves what was signed, because any change to a single byte of the document breaks the signature. And when the signature is anchored, it proves when it was signed, because the Quantova network records independent evidence of the moment the signature existed.
 
 QSign is designed to sit beside the systems an organisation already runs. It does not replace a document management system, an electronic signature platform or a records archive. It adds a signature layer that remains secure after the arrival of large scale quantum computers, and an evidence layer that a court, a regulator or an auditor can check without relying on the signer, on the platform that stored the document or on Quantova Inc.
 
-QSign is standalone. It runs on the servers of the organisation, holds its keys locally, needs no blockchain wallet and no digital asset, and uses the Quantova chain only as a neutral public ledger for time proofs.
+QSign is standalone. It runs on the servers of the organisation, holds its keys locally and uses the Quantova network only as a neutral public ledger for time proofs.
 
 ## Why organisations need it
 
@@ -74,7 +74,7 @@ When a signature is anchored, only a 32 byte Qstamp commitment reaches the chain
 
 4. Statement. The signed message is a canonical binary statement. It begins with the ASCII bytes QSIG and the version byte 1, followed by seven fields in a fixed order. Each field is an unsigned 16 bit big endian length followed by its bytes. The fields are the statement type, the digest algorithm name sha3-256, the 32 byte subject digest, the 32 byte key identifier, the signing time as an ISO 8601 UTC string with milliseconds, the signer label in UTF-8 and the note in UTF-8. The length prefixes make every statement uniquely decodable, so no two distinct statements share an encoding.
 
-5. Signature. The statement is signed with ML-DSA-65 in its hedged form, using 32 bytes of fresh randomness from the platform secure random source, under the FIPS 204 context string quantova/qsign/1. The context separates QSign signatures from every other use of the algorithm, including Quantova chain transactions and contract orders, so a QSign signature can never be replayed as either. The signature is 3309 bytes and is checked against the public key before it is returned.
+5. Signature. The statement is signed with ML-DSA-65 in its hedged form, using 32 bytes of fresh randomness from the platform secure random source, under the FIPS 204 context string quantova/qsign/1. The context separates QSign signatures from every other use of the algorithm, including Quantova network transactions and contract orders, so a QSign signature can never be replayed as either. The signature is 3309 bytes and is checked against the public key before it is returned.
 
 6. Envelope. The result is a JSON envelope in the format qsign/1. It holds the statement type, the algorithm name, the key identifier and public key, the subject digest, the signing time, the signer label, the note, the signature and, once anchored, a Qstamp receipt. Every field is validated strictly and any unknown field is refused.
 
