@@ -19,8 +19,8 @@ const HELP = `qsign, post quantum document signatures with Quantova time proofs
   qsign sign <file> --key <keyfile> [--signer TEXT] [--note TEXT] [--out FILE] [--force]
   qsign statement publish|revoke --key <keyfile> [--signer TEXT] [--note TEXT] --out FILE [--force]
   qsign anchor <envelope>... --seed-file <file> [--index N] [--rpc URL] [--max-fee N]
-  qsign verify <envelope> [--file FILE | --digest HEX] [--key-id HEX | --public-key FILE]
-               [--revocation FILE]... [--require-anchor] [--rpc URL] [--json]
+  qsign verify <envelope> [--file FILE | --digest HEX] (--key-id HEX | --public-key FILE)
+               (--revocation FILE... | --no-revocations) [--allow-unanchored] [--rpc URL] [--json]
 
 Exit codes are 0 for valid, 1 for invalid or an error, 2 for indeterminate and 64 for usage errors.`;
 
@@ -36,7 +36,7 @@ const SPEC = {
   sign: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
   statement: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
   anchor: { flags: [], values: ['seed-file', 'index', 'rpc', 'max-fee'] },
-  verify: { flags: ['require-anchor', 'json'], values: ['file', 'digest', 'key-id', 'public-key', 'rpc'], multi: ['revocation'] },
+  verify: { flags: ['allow-unanchored', 'no-revocations', 'json'], values: ['file', 'digest', 'key-id', 'public-key', 'rpc'], multi: ['revocation'] },
 };
 
 function parse(command, argv) {
@@ -315,7 +315,10 @@ async function cmdVerify(positional, flags) {
   if (flags.digest !== undefined && !/^[0-9a-fA-F]{64}$/.test(flags.digest)) throw usageError('--digest is 64 hex characters');
   if (flags.file !== undefined) fs.closeSync(openRegular(flags.file, 'document'));
   const env = readJson(positional[0], 'envelope', true);
-  const opts = { requireAnchor: !!flags['require-anchor'] };
+  if (flags['key-id'] === undefined && flags['public-key'] === undefined) throw usageError('give the expected signer with --key-id or --public-key');
+  if (flags['no-revocations'] && flags.revocation) throw usageError('give --revocation files or --no-revocations, not both');
+  if (!flags['no-revocations'] && !flags.revocation) throw usageError('give the revocations held with --revocation, or --no-revocations when none is held');
+  const opts = { requireAnchor: !flags['allow-unanchored'] };
   if (flags.file !== undefined) opts.file = flags.file;
   if (flags.digest !== undefined) opts.digest = flags.digest;
   if (flags['key-id'] !== undefined) opts.keyId = flags['key-id'];
@@ -324,7 +327,7 @@ async function cmdVerify(positional, flags) {
     if (!desc || desc.format !== 'qsign-key/1' || typeof desc.publicKey !== 'string') throw usageError('the public key file is not a qsign-key/1 description');
     opts.publicKey = desc.publicKey;
   }
-  if (flags.revocation) opts.revocations = flags.revocation.map((f) => readJson(f, 'revocation'));
+  opts.revocations = flags.revocation ? flags.revocation.map((f) => readJson(f, 'revocation')) : [];
   if (flags.rpc) opts.rpc = flags.rpc;
   const res = await qsign.verify(env, opts);
   if (flags.json) {
@@ -332,6 +335,10 @@ async function cmdVerify(positional, flags) {
   } else {
     if (res.type) console.log('type  ' + res.type);
     for (const c of res.checks) console.log((c.ok ? 'ok    ' : c.transport ? 'retry ' : c.indeterminate ? 'open  ' : 'FAIL  ') + safe(c.name) + '  ' + safe(c.detail));
+    if ((res.endpoints || []).length) {
+      console.log('endpoints  ' + res.endpoints.map(safe).join(', '));
+      if (res.officialEndpoints === false) console.log('notice  anchor times were confirmed by an endpoint that is not the official one for this network, so they are only as reliable as that endpoint');
+    }
     console.log(res.status.toUpperCase());
   }
   return res.status === 'valid' ? 0 : res.status === 'indeterminate' ? 2 : 1;

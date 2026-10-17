@@ -91,6 +91,8 @@ export interface VerifyResult {
   signerTrusted: boolean;
   revocationChecked: boolean;
   checks: VerifyCheck[];
+  endpoints: string[];
+  officialEndpoints: boolean | null;
 }
 
 export function generateKey(): Uint8Array;

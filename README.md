@@ -94,20 +94,20 @@ When verification succeeds, the following statements hold.
 2. The key identifier is the fingerprint of the public key in the envelope.
 3. The signature is a valid ML-DSA-65 signature by that public key over the exact statement.
 4. When the document is supplied, its SHA3 digest equals the signed subject.
-5. When an expected key is supplied, the signature was made by that key.
-6. When the envelope is anchored, the anchor is a valid Qstamp receipt on the named chain, it covers this exact signature, and the claimed signing time is no later than five minutes after the anchor time.
-7. When revocations are supplied, none of them was anchored before this signature.
+5. The signature was made by the expected key, which the verifier must always supply, so a signature by any other key never verifies.
+6. The envelope is anchored, unless the verifier explicitly allows an unanchored signature, and the anchor is a valid Qstamp receipt on the named chain, it covers this exact signature, and the claimed signing time is no later than five minutes after the anchor time.
+7. None of the revocations supplied was anchored before this signature. The verifier must always supply the revocations it holds, an empty list when it holds none, and without a list the result is indeterminate.
 
 ## What a valid result does not establish
 
 1. The identity of the person or organisation behind a key. A key identifier must be matched to its holder by the verifier, for example through a published key statement or an agreement between the parties.
 2. The signing time when the envelope is not anchored. Without an anchor the time is only the claim of the signer.
-3. That a key has not been revoked, unless the revocations known to the verifier are supplied.
+3. That a key has not been revoked by a revocation the verifier does not hold.
 4. Legal status as a qualified electronic signature in any jurisdiction, which requires a qualified trust service provider.
 
 ## Trust model of this release
 
-This release targets the Quantova test network. Anchors on that network carry no evidential weight. The signing module is compiled from the Quantova Q-Crypto library, which follows FIPS 204 and FIPS 202 and has been tested against the NIST vectors and cross checked against an independent implementation, but has not yet been independently audited or validated under FIPS 140-3.
+This release anchors on the live Quantova network Q-test-net-1. The signing module is compiled from the Quantova Q-Crypto library, which follows FIPS 204 and FIPS 202 and has been tested against the NIST vectors and cross checked against an independent implementation. It has not been validated under FIPS 140-3. Anchor times are confirmed by the endpoints a verifier queries, so a time is only as reliable as those endpoints. Verification names the endpoints it consulted and says whether they are the official endpoints of the network, and a verifier who needs independence from any single operator should query several independent endpoints.
 
 Secret material is handled with care. The seed is accepted only as a byte array that the caller can wipe. Inside the signing module every copy of the seed, the randomness and the expanded private key is overwritten with zeros after each call, and the working memory used during signing is cleared.
 
@@ -143,7 +143,7 @@ qsign anchor contract.pdf.qsig.json --seed-file account.key --index 0
 Verify an envelope against the document and the expected signer.
 
 ```
-qsign verify contract.pdf.qsig.json --file contract.pdf --public-key alice.pub.json --require-anchor
+qsign verify contract.pdf.qsig.json --file contract.pdf --public-key alice.pub.json --no-revocations
 ```
 
 Publish or revoke a key.
@@ -151,7 +151,7 @@ Publish or revoke a key.
 ```
 qsign statement publish --key alice.key --out alice.publish.json
 qsign statement revoke --key alice.key --note "Device retired" --out alice.revoke.json
-qsign verify contract.pdf.qsig.json --file contract.pdf --revocation alice.revoke.json
+qsign verify contract.pdf.qsig.json --file contract.pdf --public-key alice.pub.json --revocation alice.revoke.json
 ```
 
 The command exits with status 0 when the result is valid, 1 when it is invalid or the envelope cannot be read, 2 when it cannot be decided, for example because no endpoint could be reached or a revocation has no proven time, and 64 for usage errors. An unreachable endpoint never produces a valid result. Key files that are readable by other users, are symbolic links or are not regular files are refused. Output files are written privately and moved into place, and an existing file is replaced only with the force option.
@@ -168,7 +168,7 @@ key.fill(0);
 
 const [anchored] = await qsign.anchor([envelope], { seed, index: 0 });
 
-const result = await qsign.verify(anchored, { file: 'contract.pdf', publicKey, requireAnchor: true });
+const result = await qsign.verify(anchored, { file: 'contract.pdf', publicKey, revocations: [] });
 ```
 
 The result reports a status of valid, invalid or indeterminate, lists every check with its outcome and reason, and states whether the document was checked, whether the signer matched the expected key and whether revocations were considered. A key statement is never accepted as a document signature.
@@ -186,7 +186,7 @@ An auditor can verify an envelope without this SDK by following these steps.
 
 ## Network
 
-The Quantova test network is named Q-test-net-1 with genesis hash ca91e093bb8de33e90db52d7c89876597d14760703793ea7211929e73e613062. Anchors are recorded by the official Qstamp contract on that network. The public endpoint is https://rpc-testnet.quantova.org.
+The live Quantova network is named Q-test-net-1 with genesis hash ca91e093bb8de33e90db52d7c89876597d14760703793ea7211929e73e613062. Anchors are recorded by the official Qstamp contract on that network. The public endpoint is https://rpc-testnet.quantova.org.
 
 ## Licence
 
