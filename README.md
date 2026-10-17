@@ -95,7 +95,7 @@ When verification succeeds, the following statements hold.
 3. The signature is a valid ML-DSA-65 signature by that public key over the exact statement.
 4. When the document is supplied, its SHA3 digest equals the signed subject.
 5. The signature was made by the expected key, which the verifier must always supply, so a signature by any other key never verifies.
-6. The envelope is anchored, unless the verifier explicitly allows an unanchored signature, and the anchor is a valid Qstamp receipt on the named chain, it covers this exact signature, and the claimed signing time is no later than five minutes after the anchor time.
+6. The envelope is anchored, unless the verifier explicitly allows an unanchored signature, and the anchor is a valid Qstamp receipt on the named chain, it covers this exact signature, and the claimed signing time is no later than five minutes after the anchor time and no more than 24 hours before it, a window the verifier may change, or the signing time is reported as not proven.
 7. None of the revocations supplied was anchored before this signature. The verifier must always supply the revocations it holds, an empty list when it holds none, and without a list the result is indeterminate.
 
 ## What a valid result does not establish

@@ -20,7 +20,8 @@ const HELP = `qsign, post quantum document signatures with Quantova time proofs
   qsign statement publish|revoke --key <keyfile> [--signer TEXT] [--note TEXT] --out FILE [--force]
   qsign anchor <envelope>... --seed-file <file> [--index N] [--rpc URL] [--max-fee N]
   qsign verify <envelope> [--file FILE | --digest HEX] (--key-id HEX | --public-key FILE)
-               (--revocation FILE... | --no-revocations) [--allow-unanchored] [--rpc URL] [--json]
+               (--revocation FILE... | --no-revocations) [--allow-unanchored] [--max-anchor-delay SECONDS]
+               [--rpc URL] [--json]
 
 Exit codes are 0 for valid, 1 for invalid or an error, 2 for indeterminate and 64 for usage errors.`;
 
@@ -36,7 +37,7 @@ const SPEC = {
   sign: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
   statement: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
   anchor: { flags: [], values: ['seed-file', 'index', 'rpc', 'max-fee'] },
-  verify: { flags: ['allow-unanchored', 'no-revocations', 'json'], values: ['file', 'digest', 'key-id', 'public-key', 'rpc'], multi: ['revocation'] },
+  verify: { flags: ['allow-unanchored', 'no-revocations', 'json'], values: ['file', 'digest', 'key-id', 'public-key', 'max-anchor-delay', 'rpc'], multi: ['revocation'] },
 };
 
 function parse(command, argv) {
@@ -328,6 +329,10 @@ async function cmdVerify(positional, flags) {
     opts.publicKey = desc.publicKey;
   }
   opts.revocations = flags.revocation ? flags.revocation.map((f) => readJson(f, 'revocation')) : [];
+  if (flags['max-anchor-delay'] !== undefined) {
+    if (!/^[1-9][0-9]{0,9}$/.test(flags['max-anchor-delay'])) throw usageError('--max-anchor-delay is a whole number of seconds');
+    opts.maxAnchorDelay = Number(flags['max-anchor-delay']);
+  }
   if (flags.rpc) opts.rpc = flags.rpc;
   const res = await qsign.verify(env, opts);
   if (flags.json) {
