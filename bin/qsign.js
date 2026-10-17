@@ -18,13 +18,24 @@ const HELP = `qsign, post quantum document signatures with Quantova time proofs
   qsign key <keyfile>
   qsign sign <file> --key <keyfile> [--signer TEXT] [--note TEXT] [--out FILE] [--force]
   qsign statement publish|revoke --key <keyfile> [--signer TEXT] [--note TEXT] --out FILE [--force]
-  qsign anchor <envelope>... --seed-file <file> [--index N] [--rpc URL]... [--trust-single-endpoint] [--max-fee N]
-  qsign complete <envelope>... --pending FILE [--tx ID] [--rpc URL]... [--trust-single-endpoint]
+  qsign anchor <envelope>... --seed-file <file> [--index N] [--rpc URL]... [--trust-single-endpoint] [--allow-endpoint HOST]... [--allow-loopback] [--max-fee N]
+  qsign complete <envelope>... --pending FILE [--tx ID] [--rpc URL]... [--trust-single-endpoint] [--allow-endpoint HOST]...
+                [--allow-loopback]
   qsign verify <envelope> [--file FILE | --digest HEX] [--type document|key-publish|key-revoke] (--key-id HEX | --public-key FILE)
-               (--revocation FILE... | --no-revocations) [--allow-unanchored] [--max-anchor-delay SECONDS]
-               [--rpc URL]... [--trust-single-endpoint] [--json]
+               (--revocation FILE... | --no-revocations) [--key-publication FILE] [--allow-unanchored]
+               [--max-anchor-delay SECONDS] [--expect-sender ADDRESS]... [--rpc URL]... [--trust-custom-endpoints]
+               [--trust-single-endpoint] [--allow-endpoint HOST]... [--allow-loopback] [--json]
 
-Exit codes are 0 for valid, 1 for invalid or an error, 2 for indeterminate and 64 for usage errors.`;
+A document signature is VALID only when the document is given with --file or --digest. Without it the
+result is UNVERIFIED. The signer name is text chosen by the holder of the key and is not a verified
+identity. --key-publication checks it against the name the key published. An anchor counts only when
+it is proven by a finality certificate or by official endpoints of two different operators, any other
+anchor is UNPROVEN and never VALID. Endpoints given with --rpc are consulted by verify only with
+--trust-custom-endpoints, loopback endpoints only with --allow-loopback and private network endpoints
+only when named with --allow-endpoint. --expect-sender names the account that must have signed the anchor.
+
+Exit codes are 0 for valid, 1 for invalid or an error, 2 for indeterminate or unproven, 3 for unverified
+because no document was given, and 64 for usage errors.`;
 
 function usageError(message) {
   const e = new Error(message);
@@ -32,14 +43,24 @@ function usageError(message) {
   return e;
 }
 
+function endpointOptions(flags) {
+  const out = {};
+  if (flags.rpc) out.clients = flags.rpc;
+  if (flags['allow-endpoint']) out.endpointAllowList = flags['allow-endpoint'];
+  if (flags['trust-single-endpoint']) out.trustSingleEndpoint = true;
+  if (flags['trust-custom-endpoints']) out.trustCustomEndpoints = true;
+  if (flags['allow-loopback']) out.allowLoopback = true;
+  return out;
+}
+
 const SPEC = {
   keygen: { flags: ['force'], values: [] },
   key: { flags: [], values: [] },
   sign: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
   statement: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
-  anchor: { flags: ['trust-single-endpoint'], values: ['seed-file', 'index', 'max-fee'], multi: ['rpc'] },
-  complete: { flags: ['trust-single-endpoint'], values: ['pending', 'tx'], multi: ['rpc'] },
-  verify: { flags: ['allow-unanchored', 'no-revocations', 'json', 'trust-single-endpoint'], values: ['file', 'digest', 'type', 'key-id', 'public-key', 'max-anchor-delay'], multi: ['revocation', 'rpc'] },
+  anchor: { flags: ['trust-single-endpoint', 'allow-loopback'], values: ['seed-file', 'index', 'max-fee'], multi: ['rpc', 'allow-endpoint'] },
+  complete: { flags: ['trust-single-endpoint', 'allow-loopback'], values: ['pending', 'tx'], multi: ['rpc', 'allow-endpoint'] },
+  verify: { flags: ['allow-unanchored', 'no-revocations', 'json', 'trust-single-endpoint', 'trust-custom-endpoints', 'allow-loopback'], values: ['file', 'digest', 'type', 'key-id', 'public-key', 'key-publication', 'max-anchor-delay'], multi: ['revocation', 'rpc', 'allow-endpoint', 'expect-sender'] },
 };
 
 function parse(command, argv) {
@@ -321,7 +342,7 @@ async function cmdAnchor(positional, flags) {
   };
   let anchored;
   try {
-    anchored = await qsign.anchor(envs, { seed, index, network: 'testnet', clients: flags.rpc, trustSingleEndpoint: !!flags['trust-single-endpoint'], maxFee: flags['max-fee'], onPending: keep });
+    anchored = await qsign.anchor(envs, { seed, index, network: 'testnet', ...endpointOptions(flags), maxFee: flags['max-fee'], onPending: keep });
   } catch (e) {
     if (e && e.pending && typeof e.pending === 'object') {
       try {
@@ -351,7 +372,7 @@ async function cmdComplete(positional, flags) {
     if (pending && typeof pending === 'object') pending.tx = flags.tx;
   }
   const envs = positional.map((f) => readJson(f, 'envelope', true));
-  const anchored = await qsign.complete(envs, pending, { clients: flags.rpc, trustSingleEndpoint: !!flags['trust-single-endpoint'] });
+  const anchored = await qsign.complete(envs, pending, endpointOptions(flags));
   saveAnchored(positional, anchored);
   fs.rmSync(flags.pending, { force: true });
   for (const f of positional) fs.rmSync(pendingPath(f), { force: true });
@@ -380,25 +401,29 @@ async function cmdVerify(positional, flags) {
     opts.publicKey = desc.publicKey;
   }
   opts.revocations = flags.revocation ? flags.revocation.map((f) => readJson(f, 'revocation')) : [];
+  if (flags['key-publication'] !== undefined) opts.keyPublication = readJson(flags['key-publication'], 'key publication');
   if (flags['max-anchor-delay'] !== undefined) {
     if (!/^[1-9][0-9]{0,9}$/.test(flags['max-anchor-delay'])) throw usageError('--max-anchor-delay is a whole number of seconds');
     opts.maxAnchorDelay = Number(flags['max-anchor-delay']);
   }
-  if (flags.rpc) opts.clients = flags.rpc;
-  if (flags['trust-single-endpoint']) opts.trustSingleEndpoint = true;
+  Object.assign(opts, endpointOptions(flags));
+  if (flags['expect-sender']) opts.expectedSender = flags['expect-sender'];
   const res = await qsign.verify(env, opts);
   if (flags.json) {
     process.stdout.write(asciiJson(res) + '\n');
   } else {
     if (res.type) console.log('type  ' + res.type);
-    for (const c of res.checks) console.log((c.ok ? 'ok    ' : c.transport ? 'retry ' : c.indeterminate ? 'open  ' : 'FAIL  ') + safe(c.name) + '  ' + safe(c.detail));
+    for (const c of res.checks) console.log((c.ok ? 'ok    ' : c.transport ? 'retry ' : c.indeterminate || c.unproven || c.unchecked ? 'open  ' : 'FAIL  ') + safe(c.name) + '  ' + safe(c.detail));
+    if (res.signer) console.log('signer  ' + safe(res.signer) + (res.signerBound ? ', matches the name published with this key' : ', as stated by the holder of the key, not a verified identity'));
     if ((res.endpoints || []).length) {
       console.log('endpoints  ' + res.endpoints.map(safe).join(', '));
-      if (res.officialEndpoints === false) console.log('notice  anchor times were confirmed by an endpoint that is not the official one for this network, so they are only as reliable as that endpoint');
+      if (res.officialEndpoints === false) console.log('notice  endpoints other than the official ones of this network were consulted, an anchor confirmed only by them is not proven');
     }
     console.log(res.status.toUpperCase());
   }
-  return res.status === 'valid' ? 0 : res.status === 'indeterminate' ? 2 : 1;
+  if (res.status === 'valid') return 0;
+  if (res.status === 'unverified') return 3;
+  return res.status === 'indeterminate' || res.status === 'unproven' ? 2 : 1;
 }
 
 async function main() {

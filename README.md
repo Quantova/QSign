@@ -93,21 +93,21 @@ When verification succeeds, the following statements hold.
 1. The envelope is well formed and every field satisfies the format.
 2. The key identifier is the fingerprint of the public key in the envelope.
 3. The signature is a valid ML-DSA-65 signature by that public key over the exact statement.
-4. When the document is supplied, its SHA3 digest equals the signed subject.
+4. The document was supplied and its SHA3 digest equals the signed subject. Without the document a document signature is never valid, and the result is unverified.
 5. The signature was made by the expected key, which the verifier must always supply, so a signature by any other key never verifies.
-6. The envelope is anchored, unless the verifier explicitly allows an unanchored signature, and the anchor is a valid Qstamp receipt on the named chain, it covers this exact signature, and the claimed signing time is no later than five minutes after the anchor time and no more than 24 hours before it, a window the verifier may change, or the signing time is reported as not proven.
+6. The envelope is anchored, unless the verifier explicitly allows an unanchored signature, and the anchor is a valid Qstamp receipt on the named chain that Qstamp reports as proven, it covers this exact signature, and the claimed signing time is no later than five minutes after the anchor time and no more than 24 hours before it, a window the verifier may change, or the signing time is reported as not proven.
 7. None of the revocations supplied was anchored before this signature. The verifier must always supply the revocations it holds, an empty list when it holds none, and without a list the result is indeterminate.
 
 ## What a valid result does not establish
 
-1. The identity of the person or organisation behind a key. A key identifier must be matched to its holder by the verifier, for example through a published key statement or an agreement between the parties.
+1. The identity of the person or organisation behind a key. A key identifier must be matched to its holder by the verifier, for example through a published key statement or an agreement between the parties. The signer name and the note are text chosen by the holder of the key. They are self asserted, not a verified identity, and the verifier says so. A verifier can bind the signer name to the identity of the key by giving the key publish statement it received for that key through a trusted channel with the keyPublication option, or --key-publication, and verification then requires the signer name to match the name published with the key.
 2. The signing time when the envelope is not anchored. Without an anchor the time is only the claim of the signer.
 3. That a key has not been revoked by a revocation the verifier does not hold.
 4. Legal status as a qualified electronic signature in any jurisdiction, which requires a qualified trust service provider.
 
 ## Trust model of this release
 
-This release anchors on the live Quantova network Q-test-net-1. The signing module is compiled from the Quantova Q-Crypto library, which follows FIPS 204 and FIPS 202 and has been tested against the NIST vectors and cross checked against an independent implementation. It has not been validated under FIPS 140-3. Anchor times are confirmed by the endpoints a verifier queries and are accepted only when at least two endpoints run by different operators agree. Verification names the endpoints it consulted and says whether they are the official endpoints of the network, and a verifier who needs independence from any single operator should query several independent endpoints.
+This release anchors on the live Quantova network Q-test-net-1. The signing module is compiled from the Quantova Q-Crypto library, which follows FIPS 204 and FIPS 202 and has been tested against the NIST vectors and cross checked against an independent implementation. It has not been validated under FIPS 140-3. An anchor counts as proven only when Qstamp reports it proven, by a finality certificate checked against a pinned validator roster or by official endpoints of the network run by two different operators. An anchor confirmed only by custom endpoints, or by a single endpoint under trustSingleEndpoint, is reported as unproven and treated as not anchored, so the result is never valid. Verification names the endpoints it consulted and says whether they are the official endpoints of the network.
 
 Secret material is handled with care. The seed is accepted only as a byte array that the caller can wipe. Inside the signing module every copy of the seed, the randomness and the expanded private key is overwritten with zeros after each call, and the working memory used during signing is cleared.
 
@@ -157,7 +157,7 @@ qsign statement revoke --key alice.key --note "Device retired" --out alice.revok
 qsign verify contract.pdf.qsig.json --file contract.pdf --public-key alice.pub.json --revocation alice.revoke.json
 ```
 
-The command exits with status 0 when the result is valid, 1 when it is invalid or the envelope cannot be read, 2 when it cannot be decided, for example because no endpoint could be reached or a revocation has no proven time, and 64 for usage errors. An unreachable endpoint never produces a valid result. Key files that are readable by other users, are symbolic links or are not regular files are refused. Output files are written privately and moved into place, and an existing file is replaced only with the force option.
+The command exits with status 0 when the result is valid, 1 when it is invalid or the envelope cannot be read, 2 when it cannot be decided or rests on an unproven anchor, for example because no endpoint could be reached or a revocation has no proven time, 3 when it is unverified because the document was not given, and 64 for usage errors. An unreachable endpoint never produces a valid result. Key files that are readable by other users, are symbolic links or are not regular files are refused. Output files are written privately and moved into place, and an existing file is replaced only with the force option.
 
 ## Programmatic use
 
@@ -174,7 +174,7 @@ const [anchored] = await qsign.anchor([envelope], { seed, index: 0 });
 const result = await qsign.verify(anchored, { file: 'contract.pdf', publicKey, revocations: [] });
 ```
 
-The result reports a status of valid, invalid or indeterminate, lists every check with its outcome and reason, and states whether the document was checked, whether the signer matched the expected key and whether revocations were considered. A key statement is never accepted as a document signature.
+The result reports a status of valid, invalid, indeterminate, unverified when the document was not given, or unproven when an anchor rests only on endpoints that are not pinned operators. It lists every check with its outcome and reason, and states whether the document was checked, whether the signer matched the expected key, whether the signer name matched a key publication and whether revocations were considered. A key statement is never accepted as a document signature.
 
 ## Independent verification procedure
 
@@ -189,7 +189,7 @@ An auditor can verify an envelope without this SDK by following these steps.
 
 ## Network
 
-The live Quantova network is named Q-test-net-1 with genesis hash ca91e093bb8de33e90db52d7c89876597d14760703793ea7211929e73e613062. Anchors are recorded by the official Qstamp contract on that network. The public endpoint is https://rpc-testnet.quantova.org. Chain data is accepted only when at least two endpoints run by different operators agree. Give them with the rpc or clients option, or with --rpc once for each on the command line. The option trustSingleEndpoint, or --trust-single-endpoint, relies on one endpoint, which can then invent an anchor alone.
+The live Quantova network is named Q-test-net-1 with genesis hash ca91e093bb8de33e90db52d7c89876597d14760703793ea7211929e73e613062. Anchors are recorded by the official Qstamp contract on that network. The public endpoint is https://rpc-testnet.quantova.org. By default verification consults the official endpoints of the network. Endpoints chosen by the verifier are given with the rpc or clients option, or with --rpc once for each on the command line, and verification consults them only with trustCustomEndpoints, or --trust-custom-endpoints. An endpoint on a loopback address is refused unless allowLoopback, or --allow-loopback, is set, and an endpoint on a private network address unless it is named in endpointAllowList, or with --allow-endpoint. The option expectedSender, or --expect-sender, names the Quantova accounts entitled to anchor records, and an anchor signed by any other account is invalid. Anchoring accepts chain data only when at least two endpoints run by different operators agree, and the option trustSingleEndpoint, or --trust-single-endpoint, relies on one endpoint for anchoring and for the time of the chain.
 
 ## Licence
 

@@ -49,6 +49,8 @@ export interface AnchorOptions {
   client?: unknown;
   clients?: Array<string | unknown>;
   trustSingleEndpoint?: boolean;
+  allowLoopback?: boolean;
+  endpointAllowList?: string[];
   meter?: number;
   maxFee?: string | number;
   timeoutMs?: number;
@@ -62,6 +64,7 @@ export interface VerifyOptions {
   keyId?: string;
   publicKey?: Uint8Array | string;
   revocations?: Envelope[];
+  keyPublication?: Envelope;
   requireAnchor?: boolean;
   maxAnchorDelay?: number;
   expectType?: EnvelopeType;
@@ -69,6 +72,10 @@ export interface VerifyOptions {
   client?: unknown;
   clients?: Array<string | unknown>;
   trustSingleEndpoint?: boolean;
+  trustCustomEndpoints?: boolean;
+  allowLoopback?: boolean;
+  endpointAllowList?: string[];
+  expectedSender?: string | string[];
   contract?: string;
   trustCustomContract?: boolean;
 }
@@ -79,11 +86,13 @@ export interface VerifyCheck {
   detail: string;
   transport: boolean;
   indeterminate: boolean;
+  unproven: boolean;
+  unchecked: boolean;
 }
 
 export interface VerifyResult {
   valid: boolean;
-  status: 'valid' | 'invalid' | 'indeterminate';
+  status: 'valid' | 'invalid' | 'indeterminate' | 'unverified' | 'unproven';
   type: EnvelopeType | null;
   keyId: string | null;
   signer?: string;
@@ -93,7 +102,9 @@ export interface VerifyResult {
   anchoredAt: string | null;
   contentChecked: boolean;
   signerTrusted: boolean;
+  signerBound: boolean;
   revocationChecked: boolean;
+  notes: string[];
   checks: VerifyCheck[];
   endpoints: string[];
   officialEndpoints: boolean | null;
@@ -106,7 +117,7 @@ export function describeKey(key: Uint8Array): KeyDescription;
 export function sign(options: SignOptions): Promise<Envelope>;
 export function keyStatement(options: KeyStatementOptions): Envelope;
 export function anchor(envelopes: Envelope | Envelope[], options: AnchorOptions): Promise<Envelope[]>;
-export function complete(envelopes: Envelope | Envelope[], pending: unknown, options?: { rpc?: string | string[]; client?: unknown; clients?: Array<string | unknown>; trustSingleEndpoint?: boolean; timeoutMs?: number }): Promise<Envelope[]>;
+export function complete(envelopes: Envelope | Envelope[], pending: unknown, options?: { rpc?: string | string[]; client?: unknown; clients?: Array<string | unknown>; trustSingleEndpoint?: boolean; allowLoopback?: boolean; endpointAllowList?: string[]; timeoutMs?: number }): Promise<Envelope[]>;
 export function verify(envelope: unknown, options?: VerifyOptions): Promise<VerifyResult>;
 export function parseEnvelope(envelope: unknown): { type: EnvelopeType; digest: string; keyId: string; signedAt: string; signer: string; note: string };
 export function anchorDigest(envelope: unknown): string;
