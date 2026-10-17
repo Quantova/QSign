@@ -61,6 +61,7 @@ export interface VerifyOptions {
   publicKey?: Uint8Array | string;
   revocations?: Envelope[];
   requireAnchor?: boolean;
+  maxAnchorDelay?: number;
   expectType?: EnvelopeType;
   rpc?: string;
   client?: unknown;
@@ -102,6 +103,7 @@ export function describeKey(key: Uint8Array): KeyDescription;
 export function sign(options: SignOptions): Promise<Envelope>;
 export function keyStatement(options: KeyStatementOptions): Envelope;
 export function anchor(envelopes: Envelope | Envelope[], options: AnchorOptions): Promise<Envelope[]>;
+export function complete(envelopes: Envelope | Envelope[], pending: unknown, options?: { rpc?: string; client?: unknown; timeoutMs?: number }): Promise<Envelope[]>;
 export function verify(envelope: unknown, options?: VerifyOptions): Promise<VerifyResult>;
 export function parseEnvelope(envelope: unknown): { type: EnvelopeType; digest: string; keyId: string; signedAt: string; signer: string; note: string };
 export function anchorDigest(envelope: unknown): string;

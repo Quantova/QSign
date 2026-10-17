@@ -138,7 +138,10 @@ Anchor one or more envelopes through a funded Quantova account.
 
 ```
 qsign anchor contract.pdf.qsig.json --seed-file account.key --index 0
+qsign complete contract.pdf.qsig.json --pending contract.pdf.qsig.json.pending.json
 ```
+
+If an anchor is interrupted after its transaction may have been sent, the pending stamp is kept beside the first envelope and complete finishes it without paying again.
 
 Verify an envelope against the document and the expected signer.
 

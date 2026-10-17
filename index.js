@@ -3,7 +3,7 @@
 
 'use strict';
 
-const { generateKey, publicKey, keyId, describeKey, sign, keyStatement, anchor } = require('./lib/sign');
+const { generateKey, publicKey, keyId, describeKey, sign, keyStatement, anchor, complete } = require('./lib/sign');
 const { verify } = require('./lib/verify');
 const F = require('./lib/format');
 
@@ -15,6 +15,7 @@ module.exports = {
   sign,
   keyStatement,
   anchor,
+  complete,
   verify,
   parseEnvelope: (envelope) => F.parse(envelope).statement,
   anchorDigest: (envelope) => {

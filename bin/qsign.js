@@ -19,6 +19,7 @@ const HELP = `qsign, post quantum document signatures with Quantova time proofs
   qsign sign <file> --key <keyfile> [--signer TEXT] [--note TEXT] [--out FILE] [--force]
   qsign statement publish|revoke --key <keyfile> [--signer TEXT] [--note TEXT] --out FILE [--force]
   qsign anchor <envelope>... --seed-file <file> [--index N] [--rpc URL] [--max-fee N]
+  qsign complete <envelope>... --pending FILE [--tx ID] [--rpc URL]
   qsign verify <envelope> [--file FILE | --digest HEX] (--key-id HEX | --public-key FILE)
                (--revocation FILE... | --no-revocations) [--allow-unanchored] [--max-anchor-delay SECONDS]
                [--rpc URL] [--json]
@@ -37,6 +38,7 @@ const SPEC = {
   sign: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
   statement: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
   anchor: { flags: [], values: ['seed-file', 'index', 'rpc', 'max-fee'] },
+  complete: { flags: [], values: ['pending', 'tx', 'rpc'] },
   verify: { flags: ['allow-unanchored', 'no-revocations', 'json'], values: ['file', 'digest', 'key-id', 'public-key', 'max-anchor-delay', 'rpc'], multi: ['revocation'] },
 };
 
@@ -286,8 +288,24 @@ async function cmdStatement(positional, flags) {
   return 0;
 }
 
+function pendingPath(file) {
+  return file + '.pending.json';
+}
+
+function saveAnchored(files, anchored) {
+  anchored.forEach((env, i) => {
+    atomicWrite(files[i], JSON.stringify(env, null, 2) + '\n', true);
+    console.log('anchored ' + safe(files[i]) + ' in transaction ' + env.anchor.anchor.tx);
+  });
+}
+
 async function cmdAnchor(positional, flags) {
   if (positional.length === 0) throw usageError('anchor takes one or more envelopes');
+  if (new Set(positional.map((f) => path.resolve(f))).size !== positional.length) throw usageError('each envelope may be given once');
+  for (const f of positional) {
+    if (statOf(pendingPath(f))) throw usageError('an unfinished anchor exists in ' + safe(pendingPath(f)) + ', finish it with complete first');
+  }
+  const pendingFile = pendingPath(positional[0]);
   const envs = positional.map((f) => readJson(f, 'envelope', true));
   let index = 0;
   if (flags.index !== undefined) {
@@ -295,16 +313,48 @@ async function cmdAnchor(positional, flags) {
     index = Number(flags.index);
   }
   const seed = readSeed(flags['seed-file'] || process.env.QSTAMP_SEED_FILE, '--seed-file of a funded Quantova account');
+  let saved = false;
+  const keep = (pending) => {
+    const text = asciiJson(pending) + '\n';
+    for (const f of positional) atomicWrite(pendingPath(f), text, saved);
+    saved = true;
+  };
   let anchored;
   try {
-    anchored = await qsign.anchor(envs, { seed, index, network: 'testnet', rpc: flags.rpc, maxFee: flags['max-fee'] });
+    anchored = await qsign.anchor(envs, { seed, index, network: 'testnet', rpc: flags.rpc, maxFee: flags['max-fee'], onPending: keep });
+  } catch (e) {
+    if (e && e.pending && typeof e.pending === 'object') {
+      try {
+        keep(e.pending);
+        e.message += ', the pending stamp was saved in ' + safe(pendingFile) + ', finish it with qsign complete ' + positional.map(safe).join(' ') + ' --pending ' + safe(pendingFile);
+      } catch (e2) {
+        e.message += ', the pending stamp follows on standard output, keep it to finish the anchor';
+        process.stdout.write(asciiJson(e.pending) + '\n');
+      }
+    }
+    throw e;
   } finally {
     seed.fill(0);
   }
-  anchored.forEach((env, i) => {
-    atomicWrite(positional[i], JSON.stringify(env, null, 2) + '\n', true);
-    console.log('anchored ' + safe(positional[i]) + ' in transaction ' + env.anchor.anchor.tx);
-  });
+  saveAnchored(positional, anchored);
+  if (saved) for (const f of positional) fs.rmSync(pendingPath(f), { force: true });
+  return 0;
+}
+
+async function cmdComplete(positional, flags) {
+  if (positional.length === 0) throw usageError('complete takes the envelopes given to anchor, in the same order');
+  if (!flags.pending) throw usageError('--pending is required');
+  const pending = readJson(flags.pending, 'pending stamp');
+  if (flags.tx !== undefined) {
+    if (!/^QTX1[0-9A-Z]{20,120}$/.test(flags.tx)) throw usageError('--tx is the QTX1 identifier of the stamp transaction');
+    if (pending && typeof pending === 'object' && typeof pending.tx === 'string' && pending.tx !== flags.tx) throw usageError('the pending stamp already names another transaction');
+    if (pending && typeof pending === 'object') pending.tx = flags.tx;
+  }
+  const envs = positional.map((f) => readJson(f, 'envelope', true));
+  const anchored = await qsign.complete(envs, pending, { rpc: flags.rpc });
+  saveAnchored(positional, anchored);
+  fs.rmSync(flags.pending, { force: true });
+  for (const f of positional) fs.rmSync(pendingPath(f), { force: true });
   return 0;
 }
 
@@ -357,7 +407,7 @@ async function main() {
   }
   if (!Object.hasOwn(SPEC, command)) throw usageError('unknown command ' + safe(command).slice(0, 40));
   const { positional, flags } = parse(command, rest);
-  const run = { keygen: cmdKeygen, key: cmdKey, sign: cmdSign, statement: cmdStatement, anchor: cmdAnchor, verify: cmdVerify }[command];
+  const run = { keygen: cmdKeygen, key: cmdKey, sign: cmdSign, statement: cmdStatement, anchor: cmdAnchor, complete: cmdComplete, verify: cmdVerify }[command];
   return run(positional, flags);
 }
 
