@@ -18,11 +18,11 @@ const HELP = `qsign, post quantum document signatures with Quantova time proofs
   qsign key <keyfile>
   qsign sign <file> --key <keyfile> [--signer TEXT] [--note TEXT] [--out FILE] [--force]
   qsign statement publish|revoke --key <keyfile> [--signer TEXT] [--note TEXT] --out FILE [--force]
-  qsign anchor <envelope>... --seed-file <file> [--index N] [--rpc URL] [--max-fee N]
-  qsign complete <envelope>... --pending FILE [--tx ID] [--rpc URL]
-  qsign verify <envelope> [--file FILE | --digest HEX] (--key-id HEX | --public-key FILE)
+  qsign anchor <envelope>... --seed-file <file> [--index N] [--rpc URL]... [--trust-single-endpoint] [--max-fee N]
+  qsign complete <envelope>... --pending FILE [--tx ID] [--rpc URL]... [--trust-single-endpoint]
+  qsign verify <envelope> [--file FILE | --digest HEX] [--type document|key-publish|key-revoke] (--key-id HEX | --public-key FILE)
                (--revocation FILE... | --no-revocations) [--allow-unanchored] [--max-anchor-delay SECONDS]
-               [--rpc URL] [--json]
+               [--rpc URL]... [--trust-single-endpoint] [--json]
 
 Exit codes are 0 for valid, 1 for invalid or an error, 2 for indeterminate and 64 for usage errors.`;
 
@@ -37,9 +37,9 @@ const SPEC = {
   key: { flags: [], values: [] },
   sign: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
   statement: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
-  anchor: { flags: [], values: ['seed-file', 'index', 'rpc', 'max-fee'] },
-  complete: { flags: [], values: ['pending', 'tx', 'rpc'] },
-  verify: { flags: ['allow-unanchored', 'no-revocations', 'json'], values: ['file', 'digest', 'key-id', 'public-key', 'max-anchor-delay', 'rpc'], multi: ['revocation'] },
+  anchor: { flags: ['trust-single-endpoint'], values: ['seed-file', 'index', 'max-fee'], multi: ['rpc'] },
+  complete: { flags: ['trust-single-endpoint'], values: ['pending', 'tx'], multi: ['rpc'] },
+  verify: { flags: ['allow-unanchored', 'no-revocations', 'json', 'trust-single-endpoint'], values: ['file', 'digest', 'type', 'key-id', 'public-key', 'max-anchor-delay'], multi: ['revocation', 'rpc'] },
 };
 
 function parse(command, argv) {
@@ -321,7 +321,7 @@ async function cmdAnchor(positional, flags) {
   };
   let anchored;
   try {
-    anchored = await qsign.anchor(envs, { seed, index, network: 'testnet', rpc: flags.rpc, maxFee: flags['max-fee'], onPending: keep });
+    anchored = await qsign.anchor(envs, { seed, index, network: 'testnet', clients: flags.rpc, trustSingleEndpoint: !!flags['trust-single-endpoint'], maxFee: flags['max-fee'], onPending: keep });
   } catch (e) {
     if (e && e.pending && typeof e.pending === 'object') {
       try {
@@ -351,7 +351,7 @@ async function cmdComplete(positional, flags) {
     if (pending && typeof pending === 'object') pending.tx = flags.tx;
   }
   const envs = positional.map((f) => readJson(f, 'envelope', true));
-  const anchored = await qsign.complete(envs, pending, { rpc: flags.rpc });
+  const anchored = await qsign.complete(envs, pending, { clients: flags.rpc, trustSingleEndpoint: !!flags['trust-single-endpoint'] });
   saveAnchored(positional, anchored);
   fs.rmSync(flags.pending, { force: true });
   for (const f of positional) fs.rmSync(pendingPath(f), { force: true });
@@ -372,6 +372,7 @@ async function cmdVerify(positional, flags) {
   const opts = { requireAnchor: !flags['allow-unanchored'] };
   if (flags.file !== undefined) opts.file = flags.file;
   if (flags.digest !== undefined) opts.digest = flags.digest;
+  if (flags.type !== undefined) opts.expectType = flags.type;
   if (flags['key-id'] !== undefined) opts.keyId = flags['key-id'];
   if (flags['public-key'] !== undefined) {
     const desc = readJson(flags['public-key'], 'public key');
@@ -383,7 +384,8 @@ async function cmdVerify(positional, flags) {
     if (!/^[1-9][0-9]{0,9}$/.test(flags['max-anchor-delay'])) throw usageError('--max-anchor-delay is a whole number of seconds');
     opts.maxAnchorDelay = Number(flags['max-anchor-delay']);
   }
-  if (flags.rpc) opts.rpc = flags.rpc;
+  if (flags.rpc) opts.clients = flags.rpc;
+  if (flags['trust-single-endpoint']) opts.trustSingleEndpoint = true;
   const res = await qsign.verify(env, opts);
   if (flags.json) {
     process.stdout.write(asciiJson(res) + '\n');

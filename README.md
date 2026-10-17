@@ -107,7 +107,7 @@ When verification succeeds, the following statements hold.
 
 ## Trust model of this release
 
-This release anchors on the live Quantova network Q-test-net-1. The signing module is compiled from the Quantova Q-Crypto library, which follows FIPS 204 and FIPS 202 and has been tested against the NIST vectors and cross checked against an independent implementation. It has not been validated under FIPS 140-3. Anchor times are confirmed by the endpoints a verifier queries, so a time is only as reliable as those endpoints. Verification names the endpoints it consulted and says whether they are the official endpoints of the network, and a verifier who needs independence from any single operator should query several independent endpoints.
+This release anchors on the live Quantova network Q-test-net-1. The signing module is compiled from the Quantova Q-Crypto library, which follows FIPS 204 and FIPS 202 and has been tested against the NIST vectors and cross checked against an independent implementation. It has not been validated under FIPS 140-3. Anchor times are confirmed by the endpoints a verifier queries and are accepted only when at least two endpoints run by different operators agree. Verification names the endpoints it consulted and says whether they are the official endpoints of the network, and a verifier who needs independence from any single operator should query several independent endpoints.
 
 Secret material is handled with care. The seed is accepted only as a byte array that the caller can wipe. Inside the signing module every copy of the seed, the randomness and the expanded private key is overwritten with zeros after each call, and the working memory used during signing is cleared.
 
@@ -189,7 +189,7 @@ An auditor can verify an envelope without this SDK by following these steps.
 
 ## Network
 
-The live Quantova network is named Q-test-net-1 with genesis hash ca91e093bb8de33e90db52d7c89876597d14760703793ea7211929e73e613062. Anchors are recorded by the official Qstamp contract on that network. The public endpoint is https://rpc-testnet.quantova.org.
+The live Quantova network is named Q-test-net-1 with genesis hash ca91e093bb8de33e90db52d7c89876597d14760703793ea7211929e73e613062. Anchors are recorded by the official Qstamp contract on that network. The public endpoint is https://rpc-testnet.quantova.org. Chain data is accepted only when at least two endpoints run by different operators agree. Give them with the rpc or clients option, or with --rpc once for each on the command line. The option trustSingleEndpoint, or --trust-single-endpoint, relies on one endpoint, which can then invent an anchor alone.
 
 ## Licence
 

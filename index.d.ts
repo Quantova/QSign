@@ -45,8 +45,10 @@ export interface AnchorOptions {
   seed: Uint8Array;
   index: number;
   network?: 'testnet';
-  rpc?: string;
+  rpc?: string | string[];
   client?: unknown;
+  clients?: Array<string | unknown>;
+  trustSingleEndpoint?: boolean;
   meter?: number;
   maxFee?: string | number;
   timeoutMs?: number;
@@ -63,9 +65,10 @@ export interface VerifyOptions {
   requireAnchor?: boolean;
   maxAnchorDelay?: number;
   expectType?: EnvelopeType;
-  rpc?: string;
+  rpc?: string | string[];
   client?: unknown;
   clients?: Array<string | unknown>;
+  trustSingleEndpoint?: boolean;
   contract?: string;
   trustCustomContract?: boolean;
 }
@@ -103,7 +106,7 @@ export function describeKey(key: Uint8Array): KeyDescription;
 export function sign(options: SignOptions): Promise<Envelope>;
 export function keyStatement(options: KeyStatementOptions): Envelope;
 export function anchor(envelopes: Envelope | Envelope[], options: AnchorOptions): Promise<Envelope[]>;
-export function complete(envelopes: Envelope | Envelope[], pending: unknown, options?: { rpc?: string; client?: unknown; timeoutMs?: number }): Promise<Envelope[]>;
+export function complete(envelopes: Envelope | Envelope[], pending: unknown, options?: { rpc?: string | string[]; client?: unknown; clients?: Array<string | unknown>; trustSingleEndpoint?: boolean; timeoutMs?: number }): Promise<Envelope[]>;
 export function verify(envelope: unknown, options?: VerifyOptions): Promise<VerifyResult>;
 export function parseEnvelope(envelope: unknown): { type: EnvelopeType; digest: string; keyId: string; signedAt: string; signer: string; note: string };
 export function anchorDigest(envelope: unknown): string;
