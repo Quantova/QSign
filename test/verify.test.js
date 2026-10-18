@@ -132,3 +132,29 @@ test('endpoints chosen by the caller need trustCustomEndpoints, loopback needs a
   const right = await qsign.verify(anchored, Object.assign({ expectedSender: chain.core.address(SEED, 0) }, base, ep));
   assert.strictEqual(right.status, 'valid', JSON.stringify(right.checks.filter((c) => !c.ok)));
 });
+
+test('the command line refuses an envelope file that repeats a key', async () => {
+  const { key, env } = await signed('Alice');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qsign-dup-'));
+  try {
+    const text = JSON.stringify(env);
+    const twice = text.replace('{"format":', '{"signer":"Bob, Chief Executive","format":');
+    assert.notStrictEqual(twice, text);
+    const file = path.join(dir, 'env.json');
+    fs.writeFileSync(file, twice);
+    const docFile = path.join(dir, 'doc.bin');
+    fs.writeFileSync(docFile, doc);
+    let code = 0;
+    let out = '';
+    try {
+      execFileSync(process.execPath, [path.join(ROOT, 'bin', 'qsign.js'), 'verify', file, '--file', docFile, '--key-id', qsign.keyId(key), '--no-revocations', '--allow-unanchored'], { encoding: 'utf8', stdio: 'pipe' });
+    } catch (e) {
+      code = e.status;
+      out = String(e.stdout) + String(e.stderr);
+    }
+    assert.notStrictEqual(code, 0);
+    assert.doesNotMatch(out, /\nVALID\n/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
