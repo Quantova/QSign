@@ -158,3 +158,21 @@ test('the command line refuses an envelope file that repeats a key', async () =>
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('options are read only from the object given and never from Object.prototype', async () => {
+  const { key, env } = await signed();
+  const opts = { keyId: qsign.keyId(key), bytes: doc, revocations: [] };
+  const before = await qsign.verify(env, opts);
+  assert.strictEqual(before.status, 'indeterminate');
+  try {
+    Object.prototype.requireAnchor = false;
+    Object.prototype.signer = 'Mallory';
+    const after = await qsign.verify(env, opts);
+    assert.strictEqual(after.status, 'indeterminate');
+    const again = await qsign.sign({ key, bytes: doc });
+    assert.strictEqual(again.signer, '');
+  } finally {
+    delete Object.prototype.requireAnchor;
+    delete Object.prototype.signer;
+  }
+});
