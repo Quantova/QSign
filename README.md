@@ -111,6 +111,16 @@ This release anchors on the live Quantova network Q-test-net-01. The signing mod
 
 Secret material is handled with care. The seed is accepted only as a byte array that the caller can wipe. Inside the signing module every copy of the seed, the randomness and the expanded private key is overwritten with zeros after each call, and the working memory used during signing is cleared.
 
+## Threat model
+
+QSign protects the signing keys, the signature envelopes, the key publish and key revoke statements, and the receipts of anchors. Documents never leave their holder.
+
+It trusts the key that the verifier names as the expected signer, the key publications and revocations the verifier receives through a channel it trusts, the network values pinned in the Qstamp release it depends on, and the storage that holds the keys. It does not trust the gateway or any endpoint, or any party that holds or presents an envelope.
+
+A forged or altered envelope fails its signature or the digest of the document, and verification always requires the expected key, so a signature by any other key never verifies. Signatures use the context string quantova/qsign/1, so a QSign signature can never be replayed as a network transaction, a contract order or a signature of another SDK. The anchor value covers the signature itself, so a receipt cannot be moved to another envelope, and every anchor is checked against the genesis and contract pinned in the Qstamp release. A hostile gateway cannot make an unproven anchor count. A signing time later than its anchor, allowing five minutes, makes the result invalid, and one more than 24 hours before its anchor is not proven. The holder of an exposed key anchors a key revoke statement, and signatures anchored at or after it are invalid. A revocation not signed by the key it names is ignored, so no third party can withdraw a key. Unknown fields and repeated JSON keys are refused, and the command line reads at most 64 KiB of envelope.
+
+QSign keeps no ledger and signs no series, so presenting an envelope again proves the same signature and creates nothing new. Left to the integrator are the protection of keys, matching a key to its holder, supplying the revocations it holds, at most 64 for one verification, and the legal status of a signature. A key that is already lost cannot sign its own revocation, so verifiers should obtain revocations through the same trusted channel as the key.
+
 ## Installation
 
 ```
