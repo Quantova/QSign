@@ -6,7 +6,7 @@ A QSign signature does not depend on elliptic curve or RSA cryptography at any p
 
 ## What QSign is
 
-QSign is a software library and command line tool that gives any organisation post quantum digital signatures for its documents. A signature made with QSign proves three things to anyone who checks it. It proves who signed, because only the holder of the signing key can produce it. It proves what was signed, because any change to a single byte of the document breaks the signature. And when the signature is anchored, it proves when it was signed, because the Quantova network records independent evidence of the moment the signature existed.
+QSign is a software library and command line tool that gives any organisation post quantum digital signatures for its documents. A signature made with QSign proves three things to anyone who checks it. It proves which key signed, because only the holder of that key can produce it. It proves what was signed, because any change to a single byte of the document breaks the signature. And when the signature is anchored, it proves when it was signed, because the Quantova network records independent evidence of the moment the signature existed.
 
 QSign is designed to sit beside the systems an organisation already runs. It does not replace a document management system, an electronic signature platform or a records archive. It adds a signature layer that remains secure after the arrival of large scale quantum computers, and an evidence layer that a court, a regulator or an auditor can check without relying on the signer, on the platform that stored the document or on Quantova Inc.
 
@@ -16,9 +16,9 @@ QSign is standalone. It runs on the servers of the organisation, holds its keys 
 
 Nearly every digital signature in use today relies on RSA or elliptic curve cryptography. A sufficiently capable quantum computer will be able to forge those signatures, and from that point a forged contract and a genuine one cannot be told apart. Records that must be kept for five, ten or more years are signed today but must still be provable after that point.
 
-Governments have set dates for the transition. United States Executive Order 14412 requires federal systems and their contractors to move to post quantum signatures by the end of 2031. The NSA CNSA 2.0 suite requires post quantum software and firmware signing by 2030. NIST proposes to retire classical signatures after 2030 and to disallow them after 2035. The European Union, the United Kingdom, Singapore, Hong Kong, Japan and South Korea have published comparable roadmaps for the financial sector and public bodies.
+Governments have set dates for the transition. The NSA CNSA 2.0 suite requires post quantum software and firmware signing by 2030. NIST proposes to retire classical signatures after 2030 and to disallow them after 2035. The European Union, the United Kingdom, Singapore, Japan and South Korea have published comparable roadmaps for the financial sector and public bodies.
 
-QSign meets that requirement for documents now, with a standardised algorithm, and adds independent proof of signing time so that every signature made before any future compromise can still be shown to be genuine.
+QSign supports that transition for documents now, with a standardised algorithm, and adds independent proof of signing time so that every signature made before any future compromise can still be shown to be genuine.
 
 ## Who uses it
 
@@ -189,7 +189,7 @@ An auditor can verify an envelope without this SDK by following these steps.
 
 ## Network
 
-The live Quantova network is named Q-test-net-01 with genesis hash ca91e093bb8de33e90db52d7c89876597d14760703793ea7211929e73e613062. Anchors are recorded by the official Qstamp contract on that network. The public endpoint is https://rpc-testnet.quantova.org. By default verification consults the official endpoints of the network. Endpoints chosen by the verifier are given with the rpc or clients option, or with --rpc once for each on the command line, and verification consults them only with trustCustomEndpoints, or --trust-custom-endpoints. An endpoint on a loopback address is refused unless allowLoopback, or --allow-loopback, is set, and an endpoint on a private network address unless it is named in endpointAllowList, or with --allow-endpoint. The option expectedSender, or --expect-sender, names the Quantova accounts entitled to anchor records, and an anchor signed by any other account is invalid. Anchoring accepts chain data only when at least two endpoints run by different operators agree, and the option trustSingleEndpoint, or --trust-single-endpoint, relies on one endpoint for anchoring and for the time of the chain.
+The live Quantova network is named Q-test-net-01. Its genesis hash and the official Qstamp contract that records anchors are pinned in the Qstamp release this SDK depends on. The public endpoint is https://rpc-testnet.quantova.org. By default verification consults the official endpoints of the network. Endpoints chosen by the verifier are given with the rpc or clients option, or with --rpc once for each on the command line, and verification consults them only with trustCustomEndpoints, or --trust-custom-endpoints. An endpoint on a loopback address is refused unless allowLoopback, or --allow-loopback, is set, and an endpoint on a private network address unless it is named in endpointAllowList, or with --allow-endpoint. The option expectedSender, or --expect-sender, names the Quantova accounts entitled to anchor records, and an anchor signed by any other account is invalid. Anchoring accepts chain data only when at least two endpoints run by different operators agree, and the option trustSingleEndpoint, or --trust-single-endpoint, relies on one endpoint for anchoring and for the time of the chain.
 
 ## Licence
 
