@@ -218,6 +218,35 @@ function atomicWrite(dest, data, force) {
   }
 }
 
+function strictJson(text) {
+  const value = JSON.parse(text);
+  const stack = [];
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    const top = stack[stack.length - 1];
+    if (ch === '"') {
+      let j = i + 1;
+      while (text[j] !== '"') j += text[j] === '\\' ? 2 : 1;
+      if (top && top.keys && top.expectKey) {
+        const key = JSON.parse(text.slice(i, j + 1));
+        if (top.keys.has(key)) throw new Error('the JSON repeats the key ' + JSON.stringify(key));
+        top.keys.add(key);
+        top.expectKey = false;
+      }
+      i = j;
+    } else if (ch === '{') {
+      stack.push({ keys: new Set(), expectKey: true });
+    } else if (ch === '[') {
+      stack.push({ keys: null });
+    } else if (ch === '}' || ch === ']') {
+      stack.pop();
+    } else if (ch === ',' && top && top.keys) {
+      top.expectKey = true;
+    }
+  }
+  return value;
+}
+
 function readJson(file, what, invalidExit) {
   const fd = openRegular(file, what);
   const buf = Buffer.alloc(ENVELOPE_MAX + 1);
@@ -235,7 +264,7 @@ function readJson(file, what, invalidExit) {
   };
   if (n > ENVELOPE_MAX) throw bad('the ' + what + ' is larger than ' + ENVELOPE_MAX + ' bytes');
   try {
-    return JSON.parse(buf.subarray(0, n).toString('utf8'));
+    return strictJson(buf.subarray(0, n).toString('utf8'));
   } catch (e) {
     throw bad('the ' + what + ' ' + safe(file) + ' is not valid JSON');
   }
