@@ -23,7 +23,7 @@ const HELP = `qsign, post quantum document signatures with Quantova time proofs
                 [--allow-loopback]
   qsign verify <envelope> [--file FILE | --digest HEX] [--type document|key-publish|key-revoke] (--key-id HEX | --public-key FILE)
                (--revocation FILE... | --no-revocations) [--key-publication FILE] [--allow-unanchored]
-               [--max-anchor-delay SECONDS] [--expect-sender ADDRESS]... [--rpc URL]... [--trust-custom-endpoints]
+               [--max-anchor-delay SECONDS] [--at TIME] [--expect-sender ADDRESS]... [--rpc URL]... [--trust-custom-endpoints]
                [--trust-single-endpoint] [--allow-endpoint HOST]... [--allow-loopback] [--json]
 
 A document signature is VALID only when the document is given with --file or --digest. Without it the
@@ -60,7 +60,7 @@ const SPEC = {
   statement: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
   anchor: { flags: ['trust-single-endpoint', 'allow-loopback'], values: ['seed-file', 'index', 'max-fee'], multi: ['rpc', 'allow-endpoint'] },
   complete: { flags: ['trust-single-endpoint', 'allow-loopback'], values: ['pending', 'tx'], multi: ['rpc', 'allow-endpoint'] },
-  verify: { flags: ['allow-unanchored', 'no-revocations', 'json', 'trust-single-endpoint', 'trust-custom-endpoints', 'allow-loopback'], values: ['file', 'digest', 'type', 'key-id', 'public-key', 'key-publication', 'max-anchor-delay'], multi: ['revocation', 'rpc', 'allow-endpoint', 'expect-sender'] },
+  verify: { flags: ['allow-unanchored', 'no-revocations', 'json', 'trust-single-endpoint', 'trust-custom-endpoints', 'allow-loopback'], values: ['file', 'digest', 'type', 'key-id', 'public-key', 'key-publication', 'max-anchor-delay', 'at'], multi: ['revocation', 'rpc', 'allow-endpoint', 'expect-sender'] },
 };
 
 function parse(command, argv) {
@@ -434,6 +434,9 @@ async function cmdVerify(positional, flags) {
   if (flags['max-anchor-delay'] !== undefined) {
     if (!/^[1-9][0-9]{0,9}$/.test(flags['max-anchor-delay'])) throw usageError('--max-anchor-delay is a whole number of seconds');
     opts.maxAnchorDelay = Number(flags['max-anchor-delay']);
+  }
+  if (flags.at !== undefined) {
+    opts.at = flags.at;
   }
   Object.assign(opts, endpointOptions(flags));
   if (flags['expect-sender']) opts.expectedSender = flags['expect-sender'];

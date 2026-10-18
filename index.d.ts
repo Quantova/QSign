@@ -67,6 +67,7 @@ export interface VerifyOptions {
   keyPublication?: Envelope;
   requireAnchor?: boolean;
   maxAnchorDelay?: number;
+  at?: string;
   expectType?: EnvelopeType;
   rpc?: string | string[];
   client?: unknown;
