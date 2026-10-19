@@ -93,7 +93,7 @@ test('a document signature without its document never verifies valid, whatever o
       if (o.result.status === 'unverified') unverified += 1;
     }
     const withDoc = Object.assign({}, opts, { bytes: doc, requireAnchor: false, revocations: [] });
-    for (const k of ['file', 'digest']) delete withDoc[k];
+    for (const k of ['file', 'digest', 'note']) delete withDoc[k];
     const control = await qsign.verify(env, withDoc);
     assert.strictEqual(control.status, 'valid', 'iteration ' + i + ' the honest document did not verify');
   }
