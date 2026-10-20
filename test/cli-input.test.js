@@ -7,9 +7,8 @@ const assert = require('node:assert');
 const { runCli, tempDir, SAYS_VALID } = require('./fuzz');
 const { hostileCampaign, summary } = require('./hostile');
 const { honest, ROOT } = require('./signed');
-const { qstampRoot } = require('./chain');
 
-const qstamp = require(qstampRoot(ROOT));
+const qstamp = require('@quantovainc/qstamp');
 
 const BIN = path.join(ROOT, 'bin', 'qsign.js');
 const ENVELOPE_MAX = 64 * 1024;

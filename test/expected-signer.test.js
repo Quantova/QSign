@@ -10,10 +10,10 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const qsign = require('..');
-const { makeChain, client, SEED, qstampRoot } = require('./chain');
+const { makeChain, client, SEED } = require('./chain');
 
 const ROOT = path.join(__dirname, '..');
-const qstamp = require(qstampRoot(ROOT));
+const qstamp = require('@quantovainc/qstamp');
 const doc = Buffer.from('contract body');
 
 function proven(t) {

@@ -7,10 +7,10 @@ const test = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 const qsign = require('..');
-const { makeChain, client, SEED, qstampRoot } = require('./chain');
+const { makeChain, client, SEED } = require('./chain');
 
 const ROOT = path.join(__dirname, '..');
-const qstamp = require(qstampRoot(ROOT));
+const qstamp = require('@quantovainc/qstamp');
 const doc = Buffer.from('payment order 2026 0077');
 
 test('a signature verified as of a time before its anchor is not proven at that time and one dated later is refused', async (t) => {
