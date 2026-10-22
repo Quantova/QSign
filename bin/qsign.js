@@ -12,13 +12,14 @@ const qstamp = require('@quantovainc/qstamp');
 
 const ENVELOPE_MAX = 64 * 1024;
 const RECEIPT_EXT = '.qsig.json';
+const VALUE_FILE_MAX = 64 * 1024;
 
 const HELP = `qsign, post quantum document signatures with Quantova time proofs
 
   qsign keygen <keyfile>
   qsign key <keyfile>
-  qsign sign <file> --key <keyfile> [--signer TEXT] [--note TEXT] [--out FILE] [--force]
-  qsign statement publish|revoke --key <keyfile> [--signer TEXT] [--note TEXT] --out FILE [--force]
+  qsign sign <file> --key <keyfile> [--signer-file FILE] [--note-file FILE] [--out FILE] [--force]
+  qsign statement publish|revoke --key <keyfile> [--signer-file FILE] [--note-file FILE] --out FILE [--force]
   qsign anchor <envelope>... --network NAME --seed-file <file> [--index N] [--rpc URL]... [--trust-single-endpoint] [--allow-endpoint HOST]... [--allow-loopback] [--max-fee N]
   qsign complete <envelope>... --pending FILE [--tx ID] [--rpc URL]... [--trust-single-endpoint] [--allow-endpoint HOST]...
                 [--allow-loopback]
@@ -29,7 +30,9 @@ const HELP = `qsign, post quantum document signatures with Quantova time proofs
 
 A document signature is VALID only when the document is given with --file or --digest. Without it the
 result is UNVERIFIED. The signer name is text chosen by the holder of the key and is not a verified
-identity. --key-publication checks it against the name the key published. An anchor counts only when
+identity. --key-publication checks it against the name the key published. The signer name and the note are
+read from the files named by --signer-file and --note-file, or from standard input when the file is -, so
+they never appear in the shell history or the process list. An anchor counts only when
 it is proven by a finality certificate or by official endpoints of two different operators, any other
 anchor is UNPROVEN and never VALID. Endpoints given with --rpc are consulted by verify only with
 --trust-custom-endpoints, loopback endpoints only with --allow-loopback and private network endpoints
@@ -67,8 +70,8 @@ function endpointOptions(flags) {
 const SPEC = {
   keygen: { flags: ['force'], values: [] },
   key: { flags: [], values: [] },
-  sign: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
-  statement: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
+  sign: { flags: ['force'], values: ['key', 'signer', 'signer-file', 'note', 'note-file', 'out'] },
+  statement: { flags: ['force'], values: ['key', 'signer', 'signer-file', 'note', 'note-file', 'out'] },
   anchor: { flags: ['trust-single-endpoint', 'allow-loopback'], values: ['seed-file', 'index', 'max-fee', 'network'], multi: ['rpc', 'allow-endpoint'] },
   complete: { flags: ['trust-single-endpoint', 'allow-loopback'], values: ['pending', 'tx'], multi: ['rpc', 'allow-endpoint'] },
   verify: { flags: ['allow-unanchored', 'no-revocations', 'json', 'trust-single-endpoint', 'trust-custom-endpoints', 'allow-loopback'], values: ['file', 'digest', 'type', 'key-id', 'public-key', 'key-publication', 'max-anchor-delay', 'at', 'network'], multi: ['revocation', 'rpc', 'allow-endpoint', 'expect-sender'] },
@@ -325,13 +328,61 @@ async function cmdKey(positional) {
   return 0;
 }
 
+function readValue(fd, what) {
+  const size = fs.fstatSync(fd).size;
+  if (size > VALUE_FILE_MAX) throw usageError(what + ' holds more than ' + VALUE_FILE_MAX + ' bytes');
+  const buf = Buffer.alloc(size);
+  let off = 0;
+  while (off < size) {
+    const n = fs.readSync(fd, buf, off, size - off, off);
+    if (n === 0) break;
+    off += n;
+  }
+  return buf.subarray(0, off);
+}
+
+function privateValues(flags, names) {
+  const out = {};
+  let stdin = false;
+  for (const name of names) {
+    if (flags[name] !== undefined) throw usageError('--' + name + ' is no longer taken on the command line, where it shows in the shell history and the process list, give --' + name + '-file FILE, or --' + name + '-file - to read it from standard input');
+    const file = flags[name + '-file'];
+    if (file === undefined) continue;
+    let raw;
+    if (file === '-') {
+      if (stdin) throw usageError('only one value can be read from standard input');
+      stdin = true;
+      try {
+        raw = fs.readFileSync(0);
+      } catch (e) {
+        throw usageError('--' + name + '-file - could not read standard input');
+      }
+      if (raw.length > VALUE_FILE_MAX) throw usageError('--' + name + '-file holds more than ' + VALUE_FILE_MAX + ' bytes');
+    } else {
+      const fd = openRegular(file, '--' + name + '-file');
+      try {
+        raw = readValue(fd, '--' + name + '-file');
+      } finally {
+        fs.closeSync(fd);
+      }
+    }
+    try {
+      out[name] = new TextDecoder('utf-8', { fatal: true }).decode(raw).replace(/\r?\n$/, '');
+    } catch (e) {
+      throw usageError('--' + name + '-file must hold UTF-8 text');
+    }
+  }
+  return out;
+}
+
 async function cmdSign(positional, flags) {
   if (positional.length !== 1) throw usageError('sign takes one document');
   const out = flags.out || positional[0] + RECEIPT_EXT;
+  const text = privateValues(flags, ['signer', 'note']);
   const seed = readSeed(flags.key, '--key');
   let env;
   try {
-    env = await qsign.sign({ key: seed, file: positional[0], signer: flags.signer, note: flags.note });
+    env = await qsign.sign({ key: seed, file: positional[0], signer: text.signer, note: text.note });
   } finally {
     seed.fill(0);
   }
@@ -343,7 +394,8 @@ async function cmdSign(positional, flags) {
 async function cmdStatement(positional, flags) {
   if (positional.length !== 1 || !['publish', 'revoke'].includes(positional[0])) throw usageError('statement takes publish or revoke');
   if (!flags.out) throw usageError('--out is required');
-  const env = withSeed(flags.key, '--key', (seed) => qsign.keyStatement({ key: seed, action: positional[0], signer: flags.signer, note: flags.note }));
+  const text = privateValues(flags, ['signer', 'note']);
+  const env = withSeed(flags.key, '--key', (seed) => qsign.keyStatement({ key: seed, action: positional[0], signer: text.signer, note: text.note }));
   atomicWrite(flags.out, JSON.stringify(env, null, 2) + '\n', flags.force);
   console.log(positional[0] + ' statement for key ' + env.key.id + ' written to ' + safe(flags.out));
   return 0;

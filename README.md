@@ -141,8 +141,10 @@ qsign key alice.key > alice.pub.json
 Sign a document. The envelope is written beside the document with the suffix .qsig.json unless another path is given.
 
 ```
-qsign sign contract.pdf --key alice.key --signer "Alice Holdings" --note "Executed copy"
+qsign sign contract.pdf --key alice.key --signer-file signer.txt --note-file note.txt
 ```
+
+The signer name and the note are read from files, or from standard input when the file is given as -, so they never appear in the shell history or the process list.
 
 Anchor one or more envelopes through a funded Quantova account.
 
@@ -163,7 +165,7 @@ Publish or revoke a key.
 
 ```
 qsign statement publish --key alice.key --out alice.publish.json
-qsign statement revoke --key alice.key --note "Device retired" --out alice.revoke.json
+printf "Device retired" | qsign statement revoke --key alice.key --note-file - --out alice.revoke.json
 qsign verify contract.pdf.qsig.json --network testnet --file contract.pdf --public-key alice.pub.json --revocation alice.revoke.json
 ```
 
