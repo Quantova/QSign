@@ -25,7 +25,7 @@ test('hostile envelope and key publication files make the command line exit non 
     fs.writeFileSync(doc, w.doc);
     fs.writeFileSync(publication, JSON.stringify(w.envelopes['key-publish']));
     fs.writeFileSync(pending, '{}');
-    const tail = ['--file', doc, '--key-id', w.keyId, '--no-revocations', '--allow-unanchored'];
+    const tail = ['--network', 'testnet', '--file', doc, '--key-id', w.keyId, '--no-revocations', '--allow-unanchored'];
     const control = await runCli(BIN, ['verify', env].concat(tail));
     assert.strictEqual(control.code, 0, control.out + control.err);
     assert.ok(SAYS_VALID.test(control.out), control.out);

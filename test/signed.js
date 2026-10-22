@@ -36,7 +36,7 @@ async function honest() {
   const anchored = {};
   for (const type of Object.keys(envelopes)) anchored[type] = await stamp(envelopes[type]);
   const optionsFor = (type, extra) => {
-    const o = { keyId, revocations: [] };
+    const o = { network: extra && extra.trustCustomEndpoints ? 'custom' : 'testnet', keyId, revocations: [] };
     if (type === 'document') o.bytes = doc;
     else o.expectType = type;
     return Object.assign(o, extra || {});

@@ -147,7 +147,7 @@ qsign sign contract.pdf --key alice.key --signer "Alice Holdings" --note "Execut
 Anchor one or more envelopes through a funded Quantova account.
 
 ```
-qsign anchor contract.pdf.qsig.json --seed-file account.key --index 0
+qsign anchor contract.pdf.qsig.json --network testnet --seed-file account.key --index 0
 qsign complete contract.pdf.qsig.json --pending contract.pdf.qsig.json.pending.json
 ```
 
@@ -156,7 +156,7 @@ If an anchor is interrupted after its transaction may have been sent, the pendin
 Verify an envelope against the document and the expected signer.
 
 ```
-qsign verify contract.pdf.qsig.json --file contract.pdf --public-key alice.pub.json --no-revocations
+qsign verify contract.pdf.qsig.json --network testnet --file contract.pdf --public-key alice.pub.json --no-revocations
 ```
 
 Publish or revoke a key.
@@ -164,7 +164,7 @@ Publish or revoke a key.
 ```
 qsign statement publish --key alice.key --out alice.publish.json
 qsign statement revoke --key alice.key --note "Device retired" --out alice.revoke.json
-qsign verify contract.pdf.qsig.json --file contract.pdf --public-key alice.pub.json --revocation alice.revoke.json
+qsign verify contract.pdf.qsig.json --network testnet --file contract.pdf --public-key alice.pub.json --revocation alice.revoke.json
 ```
 
 The command exits with status 0 when the result is valid, 1 when it is invalid or the envelope cannot be read, 2 when it cannot be decided or rests on an unproven anchor, for example because no endpoint could be reached or a revocation has no proven time, 3 when it is unverified because the document was not given, and 64 for usage errors. An unreachable endpoint never produces a valid result. Key files that are readable by other users, are symbolic links or are not regular files are refused. Output files are written privately and moved into place, and an existing file is replaced only with the force option.
@@ -181,7 +181,7 @@ key.fill(0);
 
 const [anchored] = await qsign.anchor([envelope], { seed, index: 0 });
 
-const result = await qsign.verify(anchored, { file: 'contract.pdf', publicKey, revocations: [] });
+const result = await qsign.verify(anchored, { network: 'testnet', file: 'contract.pdf', publicKey, revocations: [] });
 ```
 
 The result reports a status of valid, invalid, indeterminate, unverified when the document was not given, or unproven when an anchor rests only on endpoints that are not pinned operators. It lists every check with its outcome and reason, and states whether the document was checked, whether the signer matched the expected key, whether the signer name matched a key publication and whether revocations were considered. A key statement is never accepted as a document signature.
@@ -199,7 +199,7 @@ An auditor can verify an envelope without this SDK by following these steps.
 
 ## Network
 
-The live Quantova network is named Q-test-net-01. Its genesis hash and the official Qstamp contract that records anchors are pinned in the Qstamp release this SDK depends on. The public endpoint is https://q-test-net-01.quantova.org. By default verification consults the official endpoints of the network. Endpoints chosen by the verifier are given with the rpc or clients option, or with --rpc once for each on the command line, and verification consults them only with trustCustomEndpoints, or --trust-custom-endpoints. An endpoint on a loopback address is refused unless allowLoopback, or --allow-loopback, is set, and an endpoint on a private network address unless it is named in endpointAllowList, or with --allow-endpoint. The option expectedSender, or --expect-sender, names the Quantova accounts entitled to anchor records, and an anchor signed by any other account is invalid. Anchoring accepts chain data only when at least two endpoints run by different operators agree, and the option trustSingleEndpoint, or --trust-single-endpoint, relies on one endpoint for anchoring and for the time of the chain.
+The live Quantova network is named Q-test-net-01. Its genesis hash and the official Qstamp contract that records anchors are pinned in the Qstamp release this SDK depends on. The public endpoint is https://q-test-net-01.quantova.org. By default verification consults the official endpoints of the network. Every verification names the network its envelopes were anchored on with the network option, or --network on the command line, testnet for the public network or custom for a chain reached only through endpoints the verifier chose, and an anchor recorded on any other network fails. Endpoints chosen by the verifier are given with the rpc or clients option, or with --rpc once for each on the command line, and verification consults them only with trustCustomEndpoints, or --trust-custom-endpoints. An endpoint on a loopback address is refused unless allowLoopback, or --allow-loopback, is set, and an endpoint on a private network address unless it is named in endpointAllowList, or with --allow-endpoint. The option expectedSender, or --expect-sender, names the Quantova accounts entitled to anchor records, and an anchor signed by any other account is invalid. Anchoring accepts chain data only when at least two endpoints run by different operators agree, and the option trustSingleEndpoint, or --trust-single-endpoint, relies on one endpoint for anchoring and for the time of the chain.
 
 ## Licence
 

@@ -59,6 +59,7 @@ export interface AnchorOptions {
 }
 
 export interface VerifyOptions {
+  network: 'testnet' | 'custom';
   file?: string;
   bytes?: Uint8Array;
   digest?: Uint8Array | string;
@@ -120,7 +121,7 @@ export function sign(options: SignOptions): Promise<Envelope>;
 export function keyStatement(options: KeyStatementOptions): Envelope;
 export function anchor(envelopes: Envelope | Envelope[], options: AnchorOptions): Promise<Envelope[]>;
 export function complete(envelopes: Envelope | Envelope[], pending: unknown, options?: { rpc?: string | string[]; client?: unknown; clients?: Array<string | unknown>; trustSingleEndpoint?: boolean; allowLoopback?: boolean; endpointAllowList?: string[]; timeoutMs?: number }): Promise<Envelope[]>;
-export function verify(envelope: unknown, options?: VerifyOptions): Promise<VerifyResult>;
+export function verify(envelope: unknown, options: VerifyOptions): Promise<VerifyResult>;
 export function parseEnvelope(envelope: unknown): { type: EnvelopeType; digest: string; keyId: string; signedAt: string; signer: string; note: string };
 export function anchorDigest(envelope: unknown): string;
 export const FORMAT: 'qsign/1';

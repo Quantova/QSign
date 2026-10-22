@@ -24,13 +24,13 @@ async function signed(signer) {
 
 test('a document signature without the document is not verified', async () => {
   const { key, env } = await signed();
-  const r = await qsign.verify(env, { keyId: qsign.keyId(key), revocations: [], requireAnchor: false });
+  const r = await qsign.verify(env, { network: 'testnet', keyId: qsign.keyId(key), revocations: [], requireAnchor: false });
   assert.strictEqual(r.status, 'unverified');
   assert.strictEqual(r.valid, false);
   assert.strictEqual(r.contentChecked, false);
-  const ok = await qsign.verify(env, { bytes: doc, keyId: qsign.keyId(key), revocations: [], requireAnchor: false });
+  const ok = await qsign.verify(env, { network: 'testnet', bytes: doc, keyId: qsign.keyId(key), revocations: [], requireAnchor: false });
   assert.strictEqual(ok.status, 'valid');
-  const other = await qsign.verify(env, { bytes: Buffer.from('another'), keyId: qsign.keyId(key), revocations: [], requireAnchor: false });
+  const other = await qsign.verify(env, { network: 'testnet', bytes: Buffer.from('another'), keyId: qsign.keyId(key), revocations: [], requireAnchor: false });
   assert.strictEqual(other.status, 'invalid');
 });
 
@@ -43,7 +43,7 @@ test('the command line exits non zero when no document is given', async () => {
     let code = 0;
     let out = '';
     try {
-      execFileSync(process.execPath, [path.join(ROOT, 'bin', 'qsign.js'), 'verify', file, '--key-id', qsign.keyId(key), '--no-revocations', '--allow-unanchored'], { encoding: 'utf8' });
+      execFileSync(process.execPath, [path.join(ROOT, 'bin', 'qsign.js'), 'verify', file, '--network', 'testnet', '--key-id', qsign.keyId(key), '--no-revocations', '--allow-unanchored'], { encoding: 'utf8' });
     } catch (e) {
       code = e.status;
       out = e.stdout;
@@ -52,7 +52,7 @@ test('the command line exits non zero when no document is given', async () => {
     assert.match(out, /UNVERIFIED/);
     const docFile = path.join(dir, 'doc.bin');
     fs.writeFileSync(docFile, doc);
-    const good = execFileSync(process.execPath, [path.join(ROOT, 'bin', 'qsign.js'), 'verify', file, '--file', docFile, '--key-id', qsign.keyId(key), '--no-revocations', '--allow-unanchored'], { encoding: 'utf8' });
+    const good = execFileSync(process.execPath, [path.join(ROOT, 'bin', 'qsign.js'), 'verify', file, '--network', 'testnet', '--file', docFile, '--key-id', qsign.keyId(key), '--no-revocations', '--allow-unanchored'], { encoding: 'utf8' });
     assert.match(good, /\nVALID\n/);
     assert.match(good, /not a verified identity/);
   } finally {
@@ -62,7 +62,7 @@ test('the command line exits non zero when no document is given', async () => {
 
 test('the signer name is reported as self asserted and can be bound to the published key', async () => {
   const { key, env } = await signed('Credit committee');
-  const base = { bytes: doc, keyId: qsign.keyId(key), revocations: [], requireAnchor: false };
+  const base = { network: 'testnet', bytes: doc, keyId: qsign.keyId(key), revocations: [], requireAnchor: false };
   const r = await qsign.verify(env, base);
   assert.strictEqual(r.signerBound, false);
   assert.ok(r.notes.some((n) => /not a verified identity/.test(n)));
@@ -83,7 +83,7 @@ test('a fabricated receipt from endpoints that are not pinned operators never ve
   const fake = makeChain(ROOT);
   const forged = { trustCustomEndpoints: true, clients: [client(fake, 'a'), client(fake, 'b')] };
   const [anchored] = await qsign.anchor(env, Object.assign({ seed: SEED, index: 0 }, forged));
-  const base = { bytes: doc, keyId: qsign.keyId(key), revocations: [] };
+  const base = { network: 'custom', bytes: doc, keyId: qsign.keyId(key), revocations: [] };
   const r = await qsign.verify(anchored, Object.assign({}, base, forged));
   assert.strictEqual(r.status, 'unproven');
   assert.strictEqual(r.anchoredAt, null);
@@ -106,7 +106,7 @@ test('an anchor proven by pinned operators verifies valid', async (t) => {
     if (had) qstamp.isProven = before;
     else delete qstamp.isProven;
   });
-  const r = await qsign.verify(anchored, Object.assign({ bytes: doc, keyId: qsign.keyId(key), revocations: [] }, ep));
+  const r = await qsign.verify(anchored, Object.assign({ network: 'custom', bytes: doc, keyId: qsign.keyId(key), revocations: [] }, ep));
   assert.strictEqual(r.status, 'valid', JSON.stringify(r.checks.filter((c) => !c.ok)));
   assert.notStrictEqual(r.anchoredAt, null);
 });
@@ -116,9 +116,10 @@ test('endpoints chosen by the caller need trustCustomEndpoints, loopback needs a
   const chain = makeChain(ROOT);
   const ep = { trustCustomEndpoints: true, clients: [client(chain, 'a'), client(chain, 'b')] };
   const [anchored] = await qsign.anchor(env, Object.assign({ seed: SEED, index: 0 }, ep));
-  const base = { bytes: doc, keyId: qsign.keyId(key), revocations: [] };
+  const base = { network: 'testnet', bytes: doc, keyId: qsign.keyId(key), revocations: [] };
   const untrusted = await qsign.verify(anchored, Object.assign({}, base, { clients: ep.clients }));
   assert.strictEqual(untrusted.status, 'indeterminate');
+  await assert.rejects(qsign.verify(anchored, Object.assign({}, base, { clients: ep.clients, network: 'custom' })), /trustCustomEndpoints/);
   const loop = await qsign.verify(anchored, Object.assign({}, base, { trustCustomEndpoints: true, rpc: 'http://127.0.0.1:9' }));
   assert.notStrictEqual(loop.status, 'valid');
   assert.ok(loop.checks.some((c) => /loopback/.test(c.detail)));
@@ -147,7 +148,7 @@ test('the command line refuses an envelope file that repeats a key', async () =>
     let code = 0;
     let out = '';
     try {
-      execFileSync(process.execPath, [path.join(ROOT, 'bin', 'qsign.js'), 'verify', file, '--file', docFile, '--key-id', qsign.keyId(key), '--no-revocations', '--allow-unanchored'], { encoding: 'utf8', stdio: 'pipe' });
+      execFileSync(process.execPath, [path.join(ROOT, 'bin', 'qsign.js'), 'verify', file, '--network', 'testnet', '--file', docFile, '--key-id', qsign.keyId(key), '--no-revocations', '--allow-unanchored'], { encoding: 'utf8', stdio: 'pipe' });
     } catch (e) {
       code = e.status;
       out = String(e.stdout) + String(e.stderr);
@@ -161,7 +162,7 @@ test('the command line refuses an envelope file that repeats a key', async () =>
 
 test('options are read only from the object given and never from Object.prototype', async () => {
   const { key, env } = await signed();
-  const opts = { keyId: qsign.keyId(key), bytes: doc, revocations: [] };
+  const opts = { network: 'testnet', keyId: qsign.keyId(key), bytes: doc, revocations: [] };
   const before = await qsign.verify(env, opts);
   assert.strictEqual(before.status, 'indeterminate');
   try {

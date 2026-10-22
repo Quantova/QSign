@@ -31,8 +31,8 @@ test('a signature by any other key never verifies, and verify refuses to run wit
   const mallory = qsign.generateKey();
   const aliceRevoke = qsign.keyStatement({ key: alice, action: 'revoke', note: 'device retired' });
   const forged = await qsign.sign({ key: mallory, bytes: doc, signer: 'Alice Holdings', signedAt: '2025-01-01T00:00:00.000Z' });
-  await assert.rejects(qsign.verify(forged, { bytes: doc, revocations: [aliceRevoke], requireAnchor: false }), (e) => e.code === 'QSIGN_INVALID_INPUT' && /expected signer/.test(e.message));
-  const pinned = await qsign.verify(forged, { bytes: doc, publicKey: qsign.publicKey(alice), revocations: [aliceRevoke], requireAnchor: false });
+  await assert.rejects(qsign.verify(forged, { network: 'testnet', bytes: doc, revocations: [aliceRevoke], requireAnchor: false }), (e) => e.code === 'QSIGN_INVALID_INPUT' && /expected signer/.test(e.message));
+  const pinned = await qsign.verify(forged, { network: 'testnet', bytes: doc, publicKey: qsign.publicKey(alice), revocations: [aliceRevoke], requireAnchor: false });
   assert.strictEqual(pinned.status, 'invalid');
   assert.strictEqual(pinned.signerTrusted, false);
 });
@@ -41,14 +41,14 @@ test('an unanchored signature or a missing revocation list never verifies valid 
   const alice = qsign.generateKey();
   const own = await qsign.sign({ key: alice, bytes: doc });
   const keyId = qsign.keyId(alice);
-  const defaults = await qsign.verify(own, { bytes: doc, keyId });
+  const defaults = await qsign.verify(own, { network: 'testnet', bytes: doc, keyId });
   assert.strictEqual(defaults.valid, false);
   assert.ok(defaults.checks.some((c) => c.name === 'anchor' && !c.ok));
   assert.ok(defaults.checks.some((c) => c.name === 'revocations' && !c.ok));
   assert.strictEqual(defaults.revocationChecked, false);
-  const noList = await qsign.verify(own, { bytes: doc, keyId, requireAnchor: false });
+  const noList = await qsign.verify(own, { network: 'testnet', bytes: doc, keyId, requireAnchor: false });
   assert.strictEqual(noList.status, 'indeterminate');
-  const explicit = await qsign.verify(own, { bytes: doc, keyId, requireAnchor: false, revocations: [] });
+  const explicit = await qsign.verify(own, { network: 'testnet', bytes: doc, keyId, requireAnchor: false, revocations: [] });
   assert.strictEqual(explicit.status, 'valid');
 });
 
@@ -71,7 +71,7 @@ test('the command line needs the expected signer and a revocation choice', async
     assert.match(noKey.stderr, /--key-id or --public-key/);
     const noChoice = run(['--public-key', pub]);
     assert.strictEqual(noChoice.status, 64);
-    const forged = run(['--public-key', pub, '--revocation', rev, '--allow-unanchored']);
+    const forged = run(['--network', 'testnet', '--public-key', pub, '--revocation', rev, '--allow-unanchored']);
     assert.strictEqual(forged.status, 1);
     assert.doesNotMatch(forged.stdout, /^VALID$/m);
   } finally {
@@ -92,7 +92,7 @@ test('a signing time more than a day before its anchor is not proven unless the 
   const old = await anchorAt(await qsign.sign({ key, bytes: doc, signedAt: new Date((now - 3 * 86400 - 60) * 1000).toISOString() }), now - 60);
   const fresh = await anchorAt(await qsign.sign({ key, bytes: doc, signedAt: new Date((now - 180) * 1000).toISOString() }), now - 60);
   chain.newBlock();
-  const opts = Object.assign({ bytes: doc, keyId: qsign.keyId(key), revocations: [] }, ep);
+  const opts = Object.assign({ network: 'custom', bytes: doc, keyId: qsign.keyId(key), revocations: [] }, ep);
   const late = await qsign.verify(old, opts);
   assert.strictEqual(late.valid, false);
   assert.ok(late.checks.some((c) => !c.ok && /24 hours/.test(c.detail)));
@@ -123,6 +123,6 @@ test('an anchor interrupted before finality keeps its pending stamp and complete
   assert.strictEqual(done.anchor.anchor.tx, pending.tx);
   await assert.rejects(qsign.complete(await qsign.sign({ key, bytes: Buffer.from('other') }), pending, ep));
   chain.newBlock();
-  const r = await qsign.verify(done, Object.assign({ bytes: doc, keyId: qsign.keyId(key), revocations: [] }, ep));
+  const r = await qsign.verify(done, Object.assign({ network: 'custom', bytes: doc, keyId: qsign.keyId(key), revocations: [] }, ep));
   assert.strictEqual(r.status, 'valid', JSON.stringify(r.checks.filter((c) => !c.ok)));
 });

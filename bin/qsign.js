@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const qsign = require('..');
+const qstamp = require('@quantovainc/qstamp');
 
 const ENVELOPE_MAX = 64 * 1024;
 const RECEIPT_EXT = '.qsig.json';
@@ -18,10 +19,10 @@ const HELP = `qsign, post quantum document signatures with Quantova time proofs
   qsign key <keyfile>
   qsign sign <file> --key <keyfile> [--signer TEXT] [--note TEXT] [--out FILE] [--force]
   qsign statement publish|revoke --key <keyfile> [--signer TEXT] [--note TEXT] --out FILE [--force]
-  qsign anchor <envelope>... --seed-file <file> [--index N] [--rpc URL]... [--trust-single-endpoint] [--allow-endpoint HOST]... [--allow-loopback] [--max-fee N]
+  qsign anchor <envelope>... --network NAME --seed-file <file> [--index N] [--rpc URL]... [--trust-single-endpoint] [--allow-endpoint HOST]... [--allow-loopback] [--max-fee N]
   qsign complete <envelope>... --pending FILE [--tx ID] [--rpc URL]... [--trust-single-endpoint] [--allow-endpoint HOST]...
                 [--allow-loopback]
-  qsign verify <envelope> [--file FILE | --digest HEX] [--type document|key-publish|key-revoke] (--key-id HEX | --public-key FILE)
+  qsign verify <envelope> --network NAME [--file FILE | --digest HEX] [--type document|key-publish|key-revoke] (--key-id HEX | --public-key FILE)
                (--revocation FILE... | --no-revocations) [--key-publication FILE] [--allow-unanchored]
                [--max-anchor-delay SECONDS] [--at TIME] [--expect-sender ADDRESS]... [--rpc URL]... [--trust-custom-endpoints]
                [--trust-single-endpoint] [--allow-endpoint HOST]... [--allow-loopback] [--json]
@@ -33,6 +34,9 @@ it is proven by a finality certificate or by official endpoints of two different
 anchor is UNPROVEN and never VALID. Endpoints given with --rpc are consulted by verify only with
 --trust-custom-endpoints, loopback endpoints only with --allow-loopback and private network endpoints
 only when named with --allow-endpoint. --expect-sender names the account that must have signed the anchor.
+--network names the network the envelopes are anchored on, testnet for the public network, and verify also
+takes custom for a chain reached only through endpoints given with --rpc and --trust-custom-endpoints. An
+anchor recorded on another network fails.
 
 Exit codes are 0 for valid, 1 for invalid or an error, 2 for indeterminate or unproven, 3 for unverified
 because no document was given, and 64 for usage errors.`;
@@ -41,6 +45,13 @@ function usageError(message) {
   const e = new Error(message);
   e.usage = true;
   return e;
+}
+
+function networkFlag(flags, verifying) {
+  const names = Object.keys(qstamp.NETWORKS).concat(verifying ? ['custom'] : []);
+  if (flags.network === undefined) throw usageError('--network is required');
+  if (!names.includes(flags.network)) throw usageError('--network is one of ' + names.join(', ') + ', the network the envelopes are anchored on');
+  return flags.network;
 }
 
 function endpointOptions(flags) {
@@ -58,9 +69,9 @@ const SPEC = {
   key: { flags: [], values: [] },
   sign: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
   statement: { flags: ['force'], values: ['key', 'signer', 'note', 'out'] },
-  anchor: { flags: ['trust-single-endpoint', 'allow-loopback'], values: ['seed-file', 'index', 'max-fee'], multi: ['rpc', 'allow-endpoint'] },
+  anchor: { flags: ['trust-single-endpoint', 'allow-loopback'], values: ['seed-file', 'index', 'max-fee', 'network'], multi: ['rpc', 'allow-endpoint'] },
   complete: { flags: ['trust-single-endpoint', 'allow-loopback'], values: ['pending', 'tx'], multi: ['rpc', 'allow-endpoint'] },
-  verify: { flags: ['allow-unanchored', 'no-revocations', 'json', 'trust-single-endpoint', 'trust-custom-endpoints', 'allow-loopback'], values: ['file', 'digest', 'type', 'key-id', 'public-key', 'key-publication', 'max-anchor-delay', 'at'], multi: ['revocation', 'rpc', 'allow-endpoint', 'expect-sender'] },
+  verify: { flags: ['allow-unanchored', 'no-revocations', 'json', 'trust-single-endpoint', 'trust-custom-endpoints', 'allow-loopback'], values: ['file', 'digest', 'type', 'key-id', 'public-key', 'key-publication', 'max-anchor-delay', 'at', 'network'], multi: ['revocation', 'rpc', 'allow-endpoint', 'expect-sender'] },
 };
 
 function parse(command, argv) {
@@ -362,6 +373,7 @@ async function cmdAnchor(positional, flags) {
     if (!/^\d{1,9}$/.test(flags.index)) throw usageError('--index is a whole number');
     index = Number(flags.index);
   }
+  const network = networkFlag(flags, false);
   const seed = readSeed(flags['seed-file'] || process.env.QSTAMP_SEED_FILE, '--seed-file of a funded Quantova account');
   let saved = false;
   const keep = (pending) => {
@@ -371,7 +383,7 @@ async function cmdAnchor(positional, flags) {
   };
   let anchored;
   try {
-    anchored = await qsign.anchor(envs, { seed, index, network: 'testnet', ...endpointOptions(flags), maxFee: flags['max-fee'], onPending: keep });
+    anchored = await qsign.anchor(envs, { seed, index, network, ...endpointOptions(flags), maxFee: flags['max-fee'], onPending: keep });
   } catch (e) {
     if (e && e.pending && typeof e.pending === 'object') {
       try {
@@ -419,7 +431,7 @@ async function cmdVerify(positional, flags) {
   if (flags['key-id'] === undefined && flags['public-key'] === undefined) throw usageError('give the expected signer with --key-id or --public-key');
   if (flags['no-revocations'] && flags.revocation) throw usageError('give --revocation files or --no-revocations, not both');
   if (!flags['no-revocations'] && !flags.revocation) throw usageError('give the revocations held with --revocation, or --no-revocations when none is held');
-  const opts = { requireAnchor: !flags['allow-unanchored'] };
+  const opts = { network: networkFlag(flags, true), requireAnchor: !flags['allow-unanchored'] };
   if (flags.file !== undefined) opts.file = flags.file;
   if (flags.digest !== undefined) opts.digest = flags.digest;
   if (flags.type !== undefined) opts.expectType = flags.type;

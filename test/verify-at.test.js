@@ -25,7 +25,7 @@ test('a signature verified as of a time before its anchor is not proven at that 
     qstamp.isProven = before;
   });
   const anchorMs = anchored.anchor.anchor.time * 1000;
-  const base = Object.assign({ bytes: doc, keyId: qsign.keyId(key), revocations: [] }, ep);
+  const base = Object.assign({ network: 'custom', bytes: doc, keyId: qsign.keyId(key), revocations: [] }, ep);
   const later = await qsign.verify(anchored, Object.assign({ at: new Date(anchorMs + 3600e3).toISOString() }, base));
   assert.strictEqual(later.status, 'valid', JSON.stringify(later.checks.filter((c) => !c.ok)));
   const earlier = await qsign.verify(anchored, Object.assign({ at: new Date(anchorMs - 1800e3).toISOString() }, base));

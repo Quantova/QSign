@@ -62,7 +62,7 @@ function assertNotValid(o, what) {
 }
 
 function documentFree(r, signer) {
-  const o = {};
+  const o = { network: 'testnet' };
   const choose = r.int(3);
   if (choose === 0) o.keyId = qsign.keyId(signer);
   else if (choose === 1) o.publicKey = qsign.publicKey(signer);
@@ -105,7 +105,7 @@ test('a document signature never verifies valid for another document, one byte a
   const n = iterations(200);
   const key = qsign.generateKey();
   const keyId = qsign.keyId(key);
-  const base = { keyId, revocations: [], requireAnchor: false };
+  const base = { network: 'testnet', keyId, revocations: [], requireAnchor: false };
   for (let i = 0; i < n; i += 1) {
     const doc = r.int(8) === 0 ? Buffer.alloc(0) : randomDocument(r);
     const env = await qsign.sign({ key, bytes: doc });
@@ -139,7 +139,7 @@ test('a document given in a form the verifier cannot read never verifies valid a
     { bytes: doc, digest: hex }, { bytes: doc, file: '/nonexistent' }, { digest: hex, file: '/nonexistent' },
   ];
   for (const [i, f] of forms.entries()) {
-    const o = await outcome(() => qsign.verify(env, Object.assign({ keyId: qsign.keyId(key), revocations: [], requireAnchor: false }, f)));
+    const o = await outcome(() => qsign.verify(env, Object.assign({ network: 'testnet', keyId: qsign.keyId(key), revocations: [], requireAnchor: false }, f)));
     assertNotValid(o, 'form ' + i + ' ' + Object.keys(f).join(','));
   }
 });
