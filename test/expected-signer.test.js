@@ -82,7 +82,7 @@ test('the command line needs the expected signer and a revocation choice', async
 test('a signing time more than a day before its anchor is not proven unless the verifier widens the window', async (t) => {
   proven(t);
   const now = Math.floor(Date.now() / 1000);
-  const chain = makeChain(ROOT, { time: now - 4 * 86400 });
+  const chain = makeChain(ROOT, { time: now - 120 });
   const ep = { trustCustomEndpoints: true, clients: [client(chain, 'a'), client(chain, 'b')] };
   const key = qsign.generateKey();
   const anchorAt = async (env, t0) => {
