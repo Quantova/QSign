@@ -1,0 +1,6 @@
+node_modules/
+*.qsign.json
+*.pending.json
+*.key
+.env*
+native/target/

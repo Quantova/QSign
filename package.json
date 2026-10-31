@@ -1,0 +1,71 @@
+{
+  "name": "@quantovainc/qsign",
+  "version": "0.1.0",
+  "description": "Post quantum software release and artifact signing provenance that proves the release, artifact, attestation, approval and revocation records of a software supply chain with ML-DSA-65 under FIPS 204 and Quantova time proofs.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "lib/",
+    "wasm/qsign_native.js",
+    "wasm/qsign_native_bg.wasm",
+    "wasm/qsign_native.d.ts",
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
+    "NOTICE",
+    "AUTHORS"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "lint": "eslint ."
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "dependencies": {
+    "@quantovainc/qstamp": "0.6.14"
+  },
+  "keywords": [
+    "post-quantum",
+    "quantum-safe",
+    "software-supply-chain",
+    "code-signing",
+    "slsa",
+    "sbom",
+    "provenance",
+    "ml-dsa",
+    "fips-204",
+    "quantova"
+  ],
+  "license": "Apache-2.0 OR MIT",
+  "author": "Quantova Inc",
+  "homepage": "https://github.com/Quantova/QSign",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Quantova/QSign.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Quantova/QSign/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.1",
+    "eslint-plugin-security": "3.0.1",
+    "globals": "16.5.0"
+  }
+}
